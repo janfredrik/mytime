@@ -2,9 +2,8 @@
 # som videresender https://mytime.x99.no til APP_PORT på Docker-verten.
 services:
   app:
-    # Ferdig image fra GitHub Actions. `docker compose up -d --build` bygger lokalt i stedet.
+    # Ferdig image fra GitHub Actions. Fungerer uten repoet; se README for å bygge selv.
     image: ghcr.io/janfredrik/mytime:${MYTIME_TAG:-latest}
-    build: .
     container_name: mytime
     restart: unless-stopped
     env_file: .env

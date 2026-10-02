@@ -133,7 +133,7 @@ Start med `docker compose up -d` og følg med på oppstarten med `docker compose
 
 GitHub Actions publiserer imaget til `ghcr.io/janfredrik/mytime` (amd64 og arm64) når testene er
 grønne på `main`. Taggene er `latest`, `sha-<kort hash>` og `1.2.3`/`1.2` for git-tagger `v1.2.3`.
-`docker compose up -d --build` (fra repoet) bygger fra kildekoden i stedet.
+For å bygge fra kildekoden i stedet (fra repoet): `docker build -t ghcr.io/janfredrik/mytime:latest . && docker compose up -d`.
 
 **Oppdatering:** `docker compose pull && docker compose up -d` (kjør `git pull` først hvis du bruker
 repoet). Databasemigrasjoner kjøres automatisk ved oppstart.

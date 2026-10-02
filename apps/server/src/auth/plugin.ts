@@ -107,11 +107,20 @@ export async function registerAuth(
     const codeVerifier = oidc.randomPKCECodeVerifier();
     const state = oidc.randomState();
     const nonce = oidc.randomNonce();
-    const url = await provider.authorizationUrl({
-      state,
-      nonce,
-      codeChallenge: await oidc.calculatePKCECodeChallenge(codeVerifier),
-    });
+    let url: URL;
+    try {
+      url = await provider.authorizationUrl({
+        state,
+        nonce,
+        codeChallenge: await oidc.calculatePKCECodeChallenge(codeVerifier),
+      });
+    } catch (err) {
+      req.log.error({ err }, 'OIDC discovery failed');
+      return reply
+        .code(502)
+        .type('text/html; charset=utf-8')
+        .send(errorPage('Kunne ikke kontakte Microsoft Entra ID. Sjekk tenant-ID og nettverk.'));
+    }
     const token = await createSession(db, {
       userId: null,
       data: { state, nonce, codeVerifier, returnTo },

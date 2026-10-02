@@ -101,10 +101,6 @@ export async function registerApi(
         return weeks.saveWeek(db, user(req).id, weekStart, body.lines);
       });
 
-      api.post('/weeks/:weekStart/submit', async (req) =>
-        weeks.submitWeek(db, user(req).id, weekParam(req)),
-      );
-
       api.post('/weeks/:weekStart/copy-previous', async (req) =>
         weeks.copyPreviousWeek(db, user(req).id, weekParam(req)),
       );

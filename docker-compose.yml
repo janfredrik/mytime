@@ -2,8 +2,9 @@
 # som videresender https://mytime.x99.no til APP_PORT på Unraid-serveren.
 services:
   app:
+    # Ferdig image fra GitHub Actions. `docker compose up -d --build` bygger lokalt i stedet.
+    image: ghcr.io/janfredrik/mytime:${MYTIME_TAG:-latest}
     build: .
-    image: mytime:latest
     container_name: mytime
     restart: unless-stopped
     env_file: .env

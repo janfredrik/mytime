@@ -48,7 +48,7 @@ test('add a line, register hours with the keyboard and add a comment', async ({ 
   await expect(page.locator('[data-cell="0:0"]')).toHaveAttribute('title', 'Planlegging\nMøte');
 });
 
-test('import, copy to next week, submit and export', async ({ page }) => {
+test('import, export, copy to next week and flag edits after export', async ({ page }) => {
   await login(page, '2026-40');
   await page.getByRole('button', { name: 'Importer' }).first().click();
   await page.setInputFiles('input[type=file]', FIXTURE);
@@ -60,7 +60,7 @@ test('import, copy to next week, submit and export', async ({ page }) => {
   await expect(page.getByRole('row', { name: /Fleks/ })).toContainText('+2,5');
 
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Eksporter' }).click();
+  await page.getByRole('button', { name: 'Eksporter uke 40' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/^week40_\d{14}\.xlsx$/);
   const exported = unzipSync(new Uint8Array(readFileSync(await download.path())));
@@ -71,8 +71,8 @@ test('import, copy to next week, submit and export', async ({ page }) => {
   };
   expect(sheetData(exported)).toBe(sheetData(original));
 
-  await page.getByRole('button', { name: 'Send inn' }).click();
-  await expect(page.getByText('Uke 40 er sendt inn')).toBeVisible();
+  await expect(page.getByText(/Lastet ned week40_\d{14}\.xlsx/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Eksporter på nytt' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Neste uke', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Uke 41', exact: true })).toBeVisible();
@@ -83,5 +83,6 @@ test('import, copy to next week, submit and export', async ({ page }) => {
   await page.getByRole('button', { name: 'Forrige uke', exact: true }).click();
   await page.locator('[data-cell="0:0"]').fill('1');
   await page.locator('[data-cell="0:0"]').press('Enter');
-  await expect(page.getByText('Endret etter innsending').first()).toBeVisible();
+  await expect(page.getByText('Endret etter eksport').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Eksporter uke 40 på nytt' })).toBeVisible();
 });

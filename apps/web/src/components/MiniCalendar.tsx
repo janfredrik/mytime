@@ -1,8 +1,46 @@
-import { type CalendarWeek, addDays, formatHours, isoWeekOf, normForDate, weekDates, weekStartOf } from '@mytime/shared';
+import {
+  type CalendarWeek,
+  WEEK_STATUS_LABEL,
+  addDays,
+  formatHours,
+  isoWeekOf,
+  normForDate,
+  weekDates,
+  weekStartOf,
+} from '@mytime/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { ChevronLeft, ChevronRight } from './icons';
+
+type Delivery = 'exported' | 'changed' | 'missing' | null;
+
+/** What the week needs from you: nothing, a fresh export, or a first export once it is over. */
+function deliveryOf(week: CalendarWeek, today: string): Delivery {
+  if (week.status === 'exported') return 'exported';
+  if (week.status === 'changed') return 'changed';
+  if (week.totalHours > 0 && addDays(week.weekStart, 7) <= today) return 'missing';
+  return null;
+}
+
+const DELIVERY_LABEL: Record<Exclude<Delivery, null>, string> = {
+  exported: WEEK_STATUS_LABEL.exported,
+  changed: WEEK_STATUS_LABEL.changed,
+  missing: 'Ikke eksportert',
+};
+
+function DeliveryMark({ delivery }: { delivery: Delivery }) {
+  if (!delivery) return null;
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className="inline-block">
+      {delivery === 'exported' && <circle cx="5" cy="5" r="4" className="fill-positive" />}
+      {delivery === 'changed' && <circle cx="5" cy="5" r="4" className="fill-warning" />}
+      {delivery === 'missing' && (
+        <circle cx="5" cy="5" r="3.25" fill="none" strokeWidth="1.5" className="stroke-negative" />
+      )}
+    </svg>
+  );
+}
 
 const MONTHS = ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'];
 
@@ -75,13 +113,18 @@ export function MiniCalendar({
       <table className="w-full text-center text-xs tabular">
         <thead>
           <tr className="text-ink-subtle">
-            <th className="w-8 py-1 font-medium">Uke</th>
-            {['M', 'T', 'O', 'T', 'F', 'L', 'S'].map((d, i) => (
-              <th key={i} className="py-1 font-medium">
-                {d}
+            <th scope="col" className="w-8 py-1 font-medium">Uke</th>
+            {['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'].map((d) => (
+              <th key={d} scope="col" className="py-1 font-medium">
+                <abbr title={d} className="no-underline">
+                  {d[0]}
+                </abbr>
               </th>
             ))}
             <th className="w-10 py-1 text-right font-medium">Sum</th>
+            <th className="w-5 py-1">
+              <span className="sr-only">Levering</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -90,6 +133,7 @@ export function MiniCalendar({
             const selected = w.weekStart === weekStart;
             const norm = dates.reduce((s, d) => s + normForDate(d, dailyNorm), 0);
             const isFuture = w.weekStart > today;
+            const delivery = deliveryOf(w, today);
             const tone =
               w.totalHours === 0
                 ? 'text-ink-subtle'
@@ -107,21 +151,21 @@ export function MiniCalendar({
                 <td className={`rounded-l-md py-1 font-semibold ${selected ? 'text-accent' : 'text-ink-muted'}`}>
                   <button
                     type="button"
-                    className="w-full"
-                    aria-label={`Gå til uke ${w.isoWeek}`}
+                    className="w-full rounded-md"
+                    aria-label={`Gå til uke ${w.isoWeek}${delivery ? `, ${DELIVERY_LABEL[delivery].toLowerCase()}` : ''}`}
                     aria-current={selected ? 'true' : undefined}
                   >
                     {w.isoWeek}
                   </button>
                 </td>
                 {dates.map((d) => (
-                  <td key={d} className="py-1">
+                  <td key={d} className="py-1" aria-hidden="true">
                     <span
                       className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${
                         d === today
                           ? 'bg-accent text-accent-ink font-semibold'
                           : d.slice(0, 7) !== month
-                            ? 'text-ink-subtle/60'
+                            ? 'text-ink-subtle'
                             : ''
                       }`}
                     >
@@ -129,12 +173,22 @@ export function MiniCalendar({
                     </span>
                   </td>
                 ))}
-                <td className={`rounded-r-md py-1 pr-1 text-right ${tone}`}>{formatHours(w.totalHours)}</td>
+                <td className={`py-1 pr-1 text-right ${tone}`}>{formatHours(w.totalHours)}</td>
+                <td className="rounded-r-md py-1 text-center" title={delivery ? DELIVERY_LABEL[delivery] : undefined}>
+                  <DeliveryMark delivery={delivery} />
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-2 text-xs text-ink-muted" aria-hidden="true">
+        {(['exported', 'changed', 'missing'] as const).map((d) => (
+          <span key={d} className="inline-flex items-center gap-1.5">
+            <DeliveryMark delivery={d} /> {DELIVERY_LABEL[d]}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

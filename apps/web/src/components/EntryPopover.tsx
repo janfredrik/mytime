@@ -40,12 +40,23 @@ export function EntryPopover({
     setPos({ top, left });
   }, [anchor]);
 
+  /** Close and hand focus back to the cell, so keyboard work continues where it left off. */
+  const dismiss = () => {
+    onClose();
+    anchor.focus();
+  };
+
   useEffect(() => {
+    // Clicking elsewhere closes without stealing focus from whatever was clicked.
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node) && !anchor.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        anchor.focus();
+      }
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
@@ -58,18 +69,32 @@ export function EntryPopover({
   const save = () => {
     if (invalid) return;
     onSave({ hours: hours ?? 0, comment: comment.trim(), timeFrom, timeTo });
-    onClose();
+    dismiss();
   };
 
   return createPortal(
     <div
       ref={ref}
       role="dialog"
+      aria-modal="true"
       aria-label={`Detaljer ${longDate(entry.date)}`}
       style={{ top: pos.top, left: pos.left, width: 320 }}
       className="fixed z-50 rounded-xl border border-line bg-surface p-4 shadow-2xl"
       onKeyDown={(e) => {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
+        if (e.key === 'Tab') {
+          // Keep Tab inside the popover while it is open.
+          const focusable = [...e.currentTarget.querySelectorAll<HTMLElement>('input, textarea, button:not(:disabled)')];
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last?.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first?.focus();
+          }
+        }
       }}
     >
       <div className="mb-3">
@@ -83,16 +108,34 @@ export function EntryPopover({
       <div className="space-y-3">
         <Field label="Timer">
           <input
-            autoFocus
+            // With hours already in place, the reason to open the popover is the comment.
+            autoFocus={!entry.hours}
             inputMode="decimal"
             className={`${inputClass} tabular ${invalid ? 'border-negative' : ''}`}
             value={hoursText}
             onChange={(e) => setHoursText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
+                e.preventDefault();
+                save();
+              }
+            }}
             aria-invalid={invalid}
+            aria-describedby={invalid ? 'entry-hours-error' : undefined}
           />
+          {invalid && (
+            <span id="entry-hours-error" className="mt-1 block text-xs text-negative">
+              Skriv timer mellom 0 og 24, f.eks. 7,5
+            </span>
+          )}
         </Field>
         <Field label="Kommentar">
           <textarea
+            autoFocus={!!entry.hours}
+            onFocus={(e) => {
+              const end = e.currentTarget.value.length;
+              e.currentTarget.setSelectionRange(end, end);
+            }}
             rows={4}
             className={`${inputClass} resize-y`}
             value={comment}
@@ -109,8 +152,11 @@ export function EntryPopover({
           </Field>
         </div>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <span className="mr-auto text-xs text-ink-subtle">
+          <kbd>{navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl'}</kbd>+<kbd>Enter</kbd> lagrer
+        </span>
+        <Button variant="ghost" onClick={dismiss}>
           Avbryt
         </Button>
         <Button variant="primary" onClick={save} disabled={invalid}>

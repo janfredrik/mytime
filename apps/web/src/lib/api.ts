@@ -19,6 +19,29 @@ export class ApiError extends Error {
   }
 }
 
+async function errorFrom(res: Response): Promise<ApiError> {
+  let message = `Feil ${res.status}`;
+  try {
+    const data = (await res.json()) as { message?: string };
+    if (data.message) message = data.message;
+  } catch {
+    // ignore non-JSON error bodies
+  }
+  return new ApiError(res.status, message);
+}
+
+/** Download the week's .xlsx; resolves with the file once the server has produced it. */
+async function exportWeek(weekStart: string): Promise<{ blob: Blob; fileName: string }> {
+  const res = await fetch(`/api/weeks/${weekStart}/export`, {
+    headers: { 'x-requested-with': 'mytime' },
+    credentials: 'same-origin',
+  });
+  if (!res.ok) throw await errorFrom(res);
+  const disposition = res.headers.get('content-disposition') ?? '';
+  const fileName = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? `uke-${weekStart}.xlsx`;
+  return { blob: await res.blob(), fileName };
+}
+
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { 'x-requested-with': 'mytime' };
   let payload: BodyInit | undefined;
@@ -28,16 +51,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     payload = JSON.stringify(body);
   }
   const res = await fetch(url, { method, headers, body: payload, credentials: 'same-origin' });
-  if (!res.ok) {
-    let message = `Feil ${res.status}`;
-    try {
-      const data = (await res.json()) as { message?: string };
-      if (data.message) message = data.message;
-    } catch {
-      // ignore non-JSON error bodies
-    }
-    throw new ApiError(res.status, message);
-  }
+  if (!res.ok) throw await errorFrom(res);
   return (await res.json()) as T;
 }
 
@@ -46,10 +60,9 @@ export const api = {
   week: (weekStart: string) => request<Week>('GET', `/api/weeks/${weekStart}`),
   saveWeek: (weekStart: string, lines: Line[]) =>
     request<Week>('PUT', `/api/weeks/${weekStart}`, { lines }),
-  submitWeek: (weekStart: string) => request<Week>('POST', `/api/weeks/${weekStart}/submit`),
   copyPrevious: (weekStart: string) =>
     request<Week>('POST', `/api/weeks/${weekStart}/copy-previous`),
-  exportUrl: (weekStart: string) => `/api/weeks/${weekStart}/export`,
+  exportWeek,
   calendar: (from: string, to: string) =>
     request<CalendarWeek[]>('GET', `/api/calendar?from=${from}&to=${to}`),
   flex: () => request<FlexSummary>('GET', '/api/flex'),

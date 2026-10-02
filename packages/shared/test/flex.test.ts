@@ -38,6 +38,12 @@ describe('flex', () => {
     expect(dailyFlex('2026-09-25', 0, 8, today)).toBe(-8);
   });
 
+  it('only counts today once the norm is reached', () => {
+    expect(dailyFlex('2026-10-02', 4, 8, today)).toBeNull();
+    expect(dailyFlex('2026-10-02', 8, 8, today)).toBe(0);
+    expect(dailyFlex('2026-10-02', 9.5, 8, today)).toBe(1.5);
+  });
+
   it('counts weekend and holiday hours fully as flex', () => {
     expect(dailyFlex('2026-10-03', 3, 8, today)).toBe(3);
     expect(dailyFlex('2026-05-17', 0, 8, today)).toBeNull();

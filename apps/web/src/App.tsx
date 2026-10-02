@@ -1,6 +1,7 @@
 import { DEFAULT_DAILY_NORM, todayISO, weekStartOf } from '@mytime/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
+import { Landing } from './components/Landing';
 import { SettingsDialog } from './components/SettingsDialog';
 import { WeekView } from './components/WeekView';
 import { Clock, Logout, Settings } from './components/icons';
@@ -25,33 +26,6 @@ function Logo() {
       </span>
       MyTime
     </span>
-  );
-}
-
-function LoginScreen() {
-  const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-  return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-8 text-center shadow-sm">
-        <div className="flex justify-center">
-          <Logo />
-        </div>
-        <h1 className="mt-6 text-xl font-semibold">Timeføring</h1>
-        <p className="mt-1 text-sm text-ink-muted">Logg inn med jobbkontoen din for å føre timer.</p>
-        <a
-          href={`/auth/login?returnTo=${returnTo}`}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-hover"
-        >
-          <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true">
-            <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-            <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-            <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-            <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-          </svg>
-          Logg inn med Microsoft
-        </a>
-      </div>
-    </div>
   );
 }
 
@@ -85,11 +59,19 @@ export function App() {
       </div>
     );
   }
-  if (me.error instanceof ApiError && me.error.status === 401) return <LoginScreen />;
+  if (me.error instanceof ApiError && me.error.status === 401) return <Landing />;
   if (me.error || !me.data) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4 text-sm text-negative">
-        Kunne ikke koble til serveren. Prøv å laste siden på nytt.
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center text-sm">
+        <p className="text-negative">Kunne ikke koble til serveren. Timene dine er ikke berørt.</p>
+        <button
+          type="button"
+          onClick={() => void me.refetch()}
+          disabled={me.isFetching}
+          className="inline-flex items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 py-1.5 font-medium hover:bg-hover disabled:opacity-50"
+        >
+          {me.isFetching && <Spinner className="h-3 w-3" />} Prøv igjen
+        </button>
       </div>
     );
   }
@@ -106,6 +88,7 @@ export function App() {
             </span>
             <button
               type="button"
+              aria-label="Innstillinger"
               onClick={() => setSettingsOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-muted hover:bg-hover hover:text-ink"
             >
@@ -113,6 +96,7 @@ export function App() {
             </button>
             <a
               href="/auth/logout"
+              aria-label="Logg ut"
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-muted hover:bg-hover hover:text-ink"
             >
               <Logout /> <span className="hidden sm:inline">Logg ut</span>

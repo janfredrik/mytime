@@ -53,10 +53,10 @@ export const timecards = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     weekStart: date('week_start', { mode: 'string' }).notNull(),
-    status: text('status', { enum: ['draft', 'submitted', 'modified'] })
+    /** draft = never exported, exported = export matches the data, changed = edited since. */
+    status: text('status', { enum: ['draft', 'exported', 'changed'] })
       .notNull()
       .default('draft'),
-    submittedAt: timestamp('submitted_at', { withTimezone: true }),
     lastExportedAt: timestamp('last_exported_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

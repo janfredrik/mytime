@@ -1,0 +1,40 @@
+# MyTime lokalt med Docker, uten Entra og uten .env:
+#   docker compose -f compose.local.yml up
+# Åpne http://localhost:8080 – «Logg inn» gir en lokal testbruker (DEV_AUTH_BYPASS).
+# Bruker imaget fra GitHub Actions; legg til --build for å bygge fra kildekoden i stedet.
+# Data ligger i volumet mytime-local-pg; `docker compose -f compose.local.yml down -v` sletter det.
+name: mytime-local
+services:
+  app:
+    image: ghcr.io/janfredrik/mytime:${MYTIME_TAG:-latest}
+    build: .
+    environment:
+      NODE_ENV: development
+      DEV_AUTH_BYPASS: 'true'
+      PUBLIC_URL: http://localhost:8080
+      SESSION_SECRET: local-only-not-a-secret-0123456789abcdef
+      DATABASE_URL: postgres://mytime:mytime@db:5432/mytime
+      TZ: Europe/Oslo
+    ports:
+      - '8080:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mytime
+      POSTGRES_PASSWORD: mytime
+      POSTGRES_DB: mytime
+      TZ: Europe/Oslo
+    volumes:
+      - mytime-local-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mytime -d mytime']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mytime-local-pg:

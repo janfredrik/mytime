@@ -1,5 +1,5 @@
 import { type LineDescriptor, joinNumberName, lineKey } from '@mytime/shared';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { type KeyboardEvent, useEffect, useId, useMemo, useState } from 'react';
 import { Search } from './icons';
 import { Button, Dialog, Field, inputClass } from './ui';
 
@@ -35,12 +35,14 @@ export function LineEditor({
 }) {
   const [value, setValue] = useState<LineDescriptor>(EMPTY);
   const [query, setQuery] = useState('');
+  const [active, setActive] = useState(-1);
   const ids = useId();
 
   useEffect(() => {
     if (open) {
       setValue(initial ?? EMPTY);
       setQuery('');
+      setActive(-1);
     }
   }, [open, initial]);
 
@@ -102,6 +104,28 @@ export function LineEditor({
     onClose();
   };
 
+  /** Pick a suggestion: add it straight away, unless the week already has that line. */
+  const pick = (s: LineDescriptor) => {
+    if (existingKeys.has(lineKey(s)) && (!initial || lineKey(initial) !== lineKey(s))) {
+      setValue(s);
+      return;
+    }
+    onSave(s);
+    onClose();
+  };
+
+  const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (matches.length === 0) return;
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      setActive((i) => (i + step + matches.length) % matches.length);
+    } else if (e.key === 'Enter' && matches[active]) {
+      e.preventDefault();
+      pick(matches[active]!);
+    }
+  };
+
   const input = (key: keyof LineDescriptor, label: string, placeholder?: string, autoFocus?: boolean) => (
     <Field label={label}>
       <input
@@ -109,7 +133,7 @@ export function LineEditor({
         value={value[key]}
         list={`${ids}-${key}`}
         placeholder={placeholder}
-        autoFocus={autoFocus}
+        data-autofocus={autoFocus || undefined}
         onChange={(e) => set(key, e.target.value)}
       />
       <datalist id={`${ids}-${key}`}>
@@ -132,8 +156,8 @@ export function LineEditor({
               variant="danger"
               className="mr-auto"
               onClick={() => {
-                onDelete();
                 onClose();
+                onDelete();
               }}
             >
               Slett linje
@@ -162,32 +186,47 @@ export function LineEditor({
               <input
                 className={`${inputClass} pl-8`}
                 placeholder="Søk i linjer du har brukt før…"
+                aria-label="Søk i linjer du har brukt før"
+                role="combobox"
+                aria-expanded="true"
+                aria-controls={`${ids}-matches`}
+                aria-activedescendant={matches[active] ? `${ids}-match-${active}` : undefined}
                 value={query}
-                autoFocus={!initial}
-                onChange={(e) => setQuery(e.target.value)}
+                data-autofocus={!initial || undefined}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setActive(e.target.value.trim() ? 0 : -1);
+                }}
+                onKeyDown={onSearchKey}
               />
             </div>
-            <ul className="mt-2 max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line">
+            <ul
+              id={`${ids}-matches`}
+              role="listbox"
+              aria-label="Tidligere linjer"
+              className="mt-2 max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line"
+            >
               {matches.length === 0 && <li className="px-3 py-2 text-sm text-ink-subtle">Ingen treff</li>}
-              {matches.map((s) => {
+              {matches.map((s, i) => {
                 const key = lineKey(s);
                 const selected = key === lineKey(trimmed);
                 return (
-                  <li key={key}>
+                  <li key={key} id={`${ids}-match-${i}`} role="option" aria-selected={i === active}>
                     <button
                       type="button"
+                      tabIndex={-1}
                       onClick={() => setValue(s)}
-                      onDoubleClick={() => {
-                        onSave(s);
-                        onClose();
-                      }}
-                      className={`block w-full px-3 py-2 text-left text-sm hover:bg-hover ${selected ? 'bg-accent-soft' : ''}`}
+                      onDoubleClick={() => pick(s)}
+                      onMouseEnter={() => setActive(i)}
+                      className={`block w-full px-3 py-2 text-left text-sm ${
+                        i === active ? 'bg-hover' : ''
+                      } ${selected ? 'bg-accent-soft' : ''}`}
                     >
                       <div className="flex items-baseline gap-2">
                         <span className="truncate font-medium">{s.projectName || s.projectNumber}</span>
                         <span className="tabular text-xs text-ink-subtle">{s.projectNumber}</span>
                         {existingKeys.has(key) && (
-                          <span className="ml-auto shrink-0 text-[11px] text-ink-subtle">i uka</span>
+                          <span className="ml-auto shrink-0 text-xs text-ink-subtle">i uka</span>
                         )}
                       </div>
                       <div className="truncate text-xs text-ink-muted">
@@ -198,6 +237,11 @@ export function LineEditor({
                 );
               })}
             </ul>
+            {!initial && (
+              <p className="mt-1.5 text-xs text-ink-subtle">
+                <kbd>↑</kbd> <kbd>↓</kbd> velger, <kbd>Enter</kbd> legger til linjen (eller dobbeltklikk).
+              </p>
+            )}
           </div>
         )}
 

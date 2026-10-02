@@ -18,8 +18,9 @@ export function normForDate(date: string, dailyNorm: number): number {
 
 /**
  * Flex for a single day: registered hours minus the norm.
- * Returns null when the day should not (yet) count: days from today and onwards
- * without registered hours, and non-workdays without hours.
+ * Returns null when the day should not (yet) count: future days without registered hours,
+ * non-workdays without hours, and today while it is still short of the norm (the day is
+ * not over, so a deficit would be premature).
  */
 export function dailyFlex(
   date: string,
@@ -27,8 +28,11 @@ export function dailyFlex(
   dailyNorm: number,
   today: string,
 ): number | null {
-  if (hours === 0 && (compareISODate(date, today) >= 0 || !isWorkday(date))) return null;
-  return round2(hours - normForDate(date, dailyNorm));
+  const norm = normForDate(date, dailyNorm);
+  const order = compareISODate(date, today);
+  if (order === 0 && hours < norm) return null;
+  if (hours === 0 && (order > 0 || !isWorkday(date))) return null;
+  return round2(hours - norm);
 }
 
 export interface FlexBalanceInput {

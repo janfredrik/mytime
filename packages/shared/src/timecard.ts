@@ -40,13 +40,17 @@ export const saveWeekSchema = z.object({
 });
 export type SaveWeek = z.infer<typeof saveWeekSchema>;
 
-export const weekStatusSchema = z.enum(['draft', 'submitted', 'modified']);
+/**
+ * Delivery state of a week. The official time system is the source of truth, so a week
+ * counts as delivered when it has been exported; edits after that make the file stale.
+ */
+export const weekStatusSchema = z.enum(['draft', 'exported', 'changed']);
 export type WeekStatus = z.infer<typeof weekStatusSchema>;
 
 export const WEEK_STATUS_LABEL: Record<WeekStatus, string> = {
-  draft: 'Utkast',
-  submitted: 'Sendt inn',
-  modified: 'Endret etter innsending',
+  draft: 'Ikke eksportert',
+  exported: 'Eksportert',
+  changed: 'Endret etter eksport',
 };
 
 export interface Week {
@@ -54,7 +58,6 @@ export interface Week {
   isoYear: number;
   isoWeek: number;
   status: WeekStatus;
-  submittedAt: string | null;
   lastExportedAt: string | null;
   lines: Line[];
 }

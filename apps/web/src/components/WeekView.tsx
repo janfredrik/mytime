@@ -7,29 +7,51 @@ import {
   formatHours,
   hoursByDate,
   isoWeekOf,
+  joinNumberName,
   lineKey,
   normForDate,
   round2,
   weekDates,
 } from '@mytime/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { dateTime, dayName, longDate, shortDate, signedHours } from '../lib/format';
 import { newLine } from '../lib/lines';
+import { useCelebrate } from '../lib/useCelebrate';
 import { useWeekEditor } from '../lib/useWeekEditor';
 import { ImportDialog } from './ImportDialog';
 import { LineEditor } from './LineEditor';
 import { MiniCalendar } from './MiniCalendar';
 import { TimeGrid, gridDays } from './TimeGrid';
-import { Alert, Check, ChevronLeft, ChevronRight, Copy, Download, Plus, Send, Upload } from './icons';
+import { Alert, Check, ChevronLeft, ChevronRight, Close, Copy, Download, Plus, Upload } from './icons';
 import { Button, Spinner } from './ui';
 
-const STATUS_STYLE: Record<WeekStatus, string> = {
-  draft: 'bg-subtle text-ink-muted ring-line-strong',
-  submitted: 'bg-positive-soft text-positive ring-positive/30',
-  modified: 'bg-warning-soft text-warning ring-warning/30',
+const STATUS_TONE: Record<WeekStatus, string> = {
+  draft: '',
+  exported: 'text-positive',
+  changed: 'text-warning',
 };
+
+const IS_MAC = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac');
+const ALT = IS_MAC ? '⌥' : 'Alt';
+
+interface Toast {
+  kind: 'ok' | 'error';
+  text: string;
+  action?: { label: string; run: () => void };
+}
+
+function saveBlob({ blob, fileName }: { blob: Blob; fileName: string }) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 
 function StatCard({ label, children, footer }: { label: string; children: ReactNode; footer?: ReactNode }) {
   return (
@@ -85,13 +107,15 @@ export function WeekView({
   const [editing, setEditing] = useState<{ id: string | null } | null>(null);
   const [importing, setImporting] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [toastPaused, setToastPaused] = useState(false);
 
+  // Errors stay until dismissed; confirmations linger longer when they offer undo.
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
+    if (!toast || toast.kind === 'error' || toastPaused) return;
+    const t = setTimeout(() => setToast(null), toast.action ? 8000 : 5000);
     return () => clearTimeout(t);
-  }, [toast]);
+  }, [toast, toastPaused]);
 
   const dates = useMemo(() => weekDates(weekStart), [weekStart]);
   const days = useMemo(() => gridDays(dates, today), [dates, today]);
@@ -108,7 +132,18 @@ export function WeekView({
     [flexFrom, dailyNorm, today],
   );
   const weekFlex = round2(dates.reduce((s, d) => s + (flexFor(d, totals.get(d) ?? 0) ?? 0), 0));
-  const overDays = days.filter((d) => (totals.get(d.date) ?? 0) > normForDate(d.date, dailyNorm) && !d.isOff);
+  const isCurrentWeek = dates.includes(today);
+  const isFutureWeek = weekStart > today;
+  const flexNote = !flexFrom
+    ? 'Starter når du fører timer'
+    : isFutureWeek
+      ? 'Uka har ikke startet'
+      : isCurrentWeek
+        ? `Til nå. I dag teller fra ${formatHours(dailyNorm)} t`
+        : 'Timer minus dagsnorm';
+  const weekFull = weekNorm > 0 && weekTotal >= weekNorm;
+  const weekFullState = useMemo(() => new Map([[weekStart, weekFull]]), [weekStart, weekFull]);
+  const weekJustFull = useCelebrate(weekFullState).has(weekStart);
   const progress = weekNorm > 0 ? Math.min(100, (weekTotal / weekNorm) * 100) : 0;
 
   const existingKeys = useMemo(() => new Set((lines ?? []).map(lineKey)), [lines]);
@@ -136,23 +171,68 @@ export function WeekView({
       });
     });
 
-  const submit = () =>
-    action('submit', async () => {
-      await editor.runAction(() => api.submitWeek(weekStart));
-      setToast({ kind: 'ok', text: `Uke ${week} er sendt inn` });
-    });
-
   const exportWeek = () =>
     action('export', async () => {
-      await editor.flush();
-      const a = document.createElement('a');
-      a.href = api.exportUrl(weekStart);
-      a.download = '';
-      document.body.append(a);
-      a.click();
-      a.remove();
-      setTimeout(() => void qc.invalidateQueries({ queryKey: ['week', weekStart] }), 1500);
+      const lineCount = lines?.length ?? 0;
+      const hours = weekTotal;
+      let fileName = '';
+      await editor.runAction(async () => {
+        const file = await api.exportWeek(weekStart);
+        fileName = file.fileName;
+        saveBlob(file);
+        return api.week(weekStart);
+      });
+      setToast({
+        kind: 'ok',
+        text: `Lastet ned ${fileName} (${lineCount} ${lineCount === 1 ? 'linje' : 'linjer'}, ${formatHours(hours)} t). Last den opp i timesystemet.`,
+      });
     });
+
+  const deleteLine = (id: string) => {
+    const index = lines?.findIndex((l) => l.id === id) ?? -1;
+    const removed = lines?.[index];
+    if (!removed) return;
+    editor.update((ls) => ls.filter((l) => l.id !== id));
+    const task = joinNumberName(removed.taskNumber, removed.taskName);
+    const name = [removed.projectName || removed.projectNumber, task].filter(Boolean).join(' · ') || 'Linjen';
+    setToast({
+      kind: 'ok',
+      text: `Slettet ${name}`,
+      action: {
+        label: 'Angre',
+        run: () =>
+          editor.update((ls) =>
+            ls.some((l) => l.id === removed.id) ? ls : [...ls.slice(0, index), removed, ...ls.slice(index)],
+          ),
+      },
+    });
+  };
+
+  // Week navigation and "new line" from the keyboard, unless a dialog has the focus.
+  const shortcuts = useRef({ prev: () => {}, next: () => {}, add: () => {} });
+  shortcuts.current = {
+    prev: () => onNavigate(addDays(weekStart, -7)),
+    next: () => onNavigate(addDays(weekStart, 7)),
+    add: () => lines && setEditing({ id: null }),
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || document.querySelector('dialog[open], [role="dialog"]')) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'PageUp' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        shortcuts.current.prev();
+      } else if (e.key === 'PageDown' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        shortcuts.current.next();
+      } else if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyN') {
+        e.preventDefault();
+        shortcuts.current.add();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   const saveLine = (descriptor: LineDescriptor) => {
     if (editing?.id) {
@@ -164,6 +244,17 @@ export function WeekView({
   };
 
   const status = meta?.status ?? 'draft';
+  const canExport = !!lines && lines.length > 0 && weekTotal > 0;
+  const exportLabel =
+    status === 'exported' ? 'Eksporter på nytt' : status === 'changed' ? `Eksporter uke ${week} på nytt` : `Eksporter uke ${week}`;
+  const exportNote =
+    status === 'exported' && meta?.lastExportedAt
+      ? `${dateTime(meta.lastExportedAt)}. Endringer etter dette krever ny eksport`
+      : status === 'changed' && meta?.lastExportedAt
+        ? `Sist eksportert ${dateTime(meta.lastExportedAt)}. Filen er utdatert`
+        : weekTotal > 0
+          ? 'Eksporter og last opp i timesystemet'
+          : 'Ingen timer å eksportere ennå';
 
   return (
     <div className="space-y-5">
@@ -174,6 +265,8 @@ export function WeekView({
               <button
                 type="button"
                 aria-label="Forrige uke"
+                aria-keyshortcuts="PageUp"
+                title="Forrige uke (Page Up)"
                 onClick={() => onNavigate(addDays(weekStart, -7))}
                 className="rounded-lg p-1.5 text-ink-muted hover:bg-hover hover:text-ink"
               >
@@ -183,6 +276,8 @@ export function WeekView({
               <button
                 type="button"
                 aria-label="Neste uke"
+                aria-keyshortcuts="PageDown"
+                title="Neste uke (Page Down)"
                 onClick={() => onNavigate(addDays(weekStart, 7))}
                 className="rounded-lg p-1.5 text-ink-muted hover:bg-hover hover:text-ink"
               >
@@ -192,16 +287,14 @@ export function WeekView({
             <div className="text-sm text-ink-muted tabular">
               {dayName(0)} {shortDate(weekStart)} – {dayName(6).toLowerCase()} {longDate(addDays(weekStart, 6))}
             </div>
-            {!dates.includes(today) && (
-              <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={() => onNavigate(today)}>
-                Gå til denne uka
-              </Button>
-            )}
-            <span
-              className={`ml-auto rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${STATUS_STYLE[status]}`}
+            {/* Always rendered so the header does not shift between weeks. */}
+            <Button
+              variant="ghost"
+              className={`!px-2 !py-1 text-xs ${isCurrentWeek ? 'invisible' : ''}`}
+              onClick={() => onNavigate(today)}
             >
-              {WEEK_STATUS_LABEL[status]}
-            </span>
+              Gå til denne uka
+            </Button>
           </div>
 
           <div className="grid flex-1 grid-cols-2 gap-3">
@@ -218,8 +311,17 @@ export function WeekView({
             >
               <span className="text-3xl font-semibold tabular">{formatHours(weekTotal)}</span>
               <span className="text-sm text-ink-muted tabular">/ {formatHours(weekNorm)} t</span>
+              {weekFull && (
+                <span
+                  className={`ml-auto inline-flex items-center gap-1 self-center rounded-full bg-positive-soft py-0.5 pr-2.5 pl-1.5 text-xs font-semibold text-positive ${
+                    weekJustFull ? 'stamp-in' : ''
+                  }`}
+                >
+                  <Check size={13} strokeWidth={2.8} /> Full uke
+                </span>
+              )}
             </StatCard>
-            <StatCard label="Fleks denne uka" footer={flexFrom ? 'Timer minus dagsnorm, frem til i dag' : 'Starter når du fører timer'}>
+            <StatCard label="Fleks denne uka" footer={flexNote}>
               <span
                 className={`text-3xl font-semibold tabular ${weekFlex > 0 ? 'text-positive' : weekFlex < 0 ? 'text-negative' : ''}`}
               >
@@ -236,42 +338,41 @@ export function WeekView({
               </span>
               <span className="text-sm text-ink-muted">t</span>
             </StatCard>
-            <StatCard
-              label="Status"
-              footer={meta?.lastExportedAt ? `Eksportert ${dateTime(meta.lastExportedAt)}` : 'Ikke eksportert'}
-            >
-              <span className="truncate text-lg font-semibold">{WEEK_STATUS_LABEL[status]}</span>
-              {meta?.submittedAt && (
-                <span className="truncate text-xs text-ink-muted">{dateTime(meta.submittedAt)}</span>
-              )}
+            <StatCard label="Levering" footer={exportNote}>
+              <span className={`flex min-w-0 items-start gap-1.5 text-lg leading-snug font-semibold ${STATUS_TONE[status]}`}>
+                {status === 'exported' ? (
+                  <Check className="mt-1 shrink-0" />
+                ) : status === 'changed' ? (
+                  <Alert className="mt-1 shrink-0" />
+                ) : null}
+                <span>{WEEK_STATUS_LABEL[status]}</span>
+              </span>
             </StatCard>
           </div>
         </div>
         <MiniCalendar weekStart={weekStart} today={today} dailyNorm={dailyNorm} onSelectWeek={onNavigate} />
       </section>
 
-      {overDays.length > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning">
-          <Alert className="shrink-0" />
-          Over dagsnorm ({formatHours(dailyNorm)} t):{' '}
-          {overDays.map((d) => `${dayName(d.index).toLowerCase()} ${shortDate(d.date)}`).join(', ')}
-        </div>
-      )}
-
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={copyPrevious} disabled={!lines || busy !== null}>
-          {busy === 'copy' ? <Spinner /> : <Copy />} Kopier fra forrige uke
-        </Button>
-        <Button onClick={() => setImporting(true)} disabled={!lines}>
-          <Upload /> Importer
-        </Button>
-        <Button onClick={exportWeek} disabled={!lines || busy !== null}>
-          <Download /> Eksporter
-        </Button>
+        {lines && lines.length > 0 && (
+          <>
+            <Button onClick={copyPrevious} disabled={busy !== null}>
+              {busy === 'copy' ? <Spinner /> : <Copy />} Kopier fra forrige uke
+            </Button>
+            <Button onClick={() => setImporting(true)}>
+              <Upload /> Importer
+            </Button>
+          </>
+        )}
         <div className="ml-auto flex items-center gap-3">
           <SaveIndicator state={editor.saveState} error={editor.saveError} />
-          <Button variant="primary" onClick={submit} disabled={!lines || busy !== null}>
-            {busy === 'submit' ? <Spinner /> : <Send />} {status === 'draft' ? 'Send inn' : 'Send inn på nytt'}
+          <Button
+            variant={status === 'exported' ? 'secondary' : 'primary'}
+            onClick={exportWeek}
+            disabled={!canExport || busy !== null}
+            title={canExport ? undefined : 'Ingen timer å eksportere'}
+          >
+            {busy === 'export' ? <Spinner /> : <Download />} {exportLabel}
           </Button>
         </div>
       </div>
@@ -312,10 +413,25 @@ export function WeekView({
             onUpdate={editor.update}
             onEditLine={(l) => setEditing({ id: l.id })}
             onAddLine={() => setEditing({ id: null })}
+            onDeleteLine={deleteLine}
           />
-          <p className="text-xs text-ink-subtle">
-            Tips: Bruk piltastene og Enter for å flytte mellom cellene. Shift+Enter åpner kommentar for cellen. Endringer
-            lagres automatisk.
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+            <span>
+              <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> flytter mellom cellene
+            </span>
+            <span>
+              <kbd>Shift</kbd>+<kbd>Enter</kbd> kommentar
+            </span>
+            <span>
+              <kbd>Esc</kbd> angrer i cellen
+            </span>
+            <span>
+              <kbd>{ALT}</kbd>+<kbd>N</kbd> ny linje
+            </span>
+            <span>
+              <kbd>Page Up</kbd> <kbd>Page Down</kbd> forrige/neste uke
+            </span>
+            <span>Alt lagres automatisk.</span>
           </p>
         </>
       )}
@@ -326,9 +442,7 @@ export function WeekView({
         suggestions={suggestions.data ?? []}
         existingKeys={existingKeys}
         onSave={saveLine}
-        onDelete={
-          editingLine ? () => editor.update((ls) => ls.filter((l) => l.id !== editingLine.id)) : undefined
-        }
+        onDelete={editingLine ? () => deleteLine(editingLine.id) : undefined}
         onClose={() => setEditing(null)}
       />
 
@@ -350,12 +464,37 @@ export function WeekView({
 
       {toast && (
         <div
-          role="status"
-          className={`fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg ${
+          role={toast.kind === 'error' ? 'alert' : 'status'}
+          onMouseEnter={() => setToastPaused(true)}
+          onMouseLeave={() => setToastPaused(false)}
+          onFocus={() => setToastPaused(true)}
+          onBlur={() => setToastPaused(false)}
+          className={`fixed right-4 bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg py-2 pr-2 pl-4 text-sm font-medium shadow-lg sm:left-auto sm:max-w-md ${
             toast.kind === 'ok' ? 'bg-ink text-canvas' : 'bg-negative text-white'
           }`}
         >
-          {toast.kind === 'ok' ? <Check /> : <Alert />} {toast.text}
+          <span className="shrink-0">{toast.kind === 'ok' ? <Check /> : <Alert />}</span>
+          <span className="min-w-0 flex-1">{toast.text}</span>
+          {toast.action && (
+            <button
+              type="button"
+              onClick={() => {
+                toast.action!.run();
+                setToast(null);
+              }}
+              className="shrink-0 rounded-md px-2.5 py-1 font-semibold underline-offset-2 hover:underline"
+            >
+              {toast.action.label}
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Lukk melding"
+            onClick={() => setToast(null)}
+            className="shrink-0 rounded-md p-1 opacity-80 hover:opacity-100"
+          >
+            <Close size={14} />
+          </button>
         </div>
       )}
     </div>

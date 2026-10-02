@@ -49,8 +49,13 @@ automatisk ved oppstart.
 git clone https://github.com/janfredrik/mytime.git .
 cp .env.example .env
 nano .env               # fyll inn Entra-verdier, SESSION_SECRET og POSTGRES_PASSWORD
-docker compose up -d --build
+docker compose pull && docker compose up -d
 ```
+
+GitHub Actions publiserer imaget til `ghcr.io/janfredrik/mytime` (amd64 og arm64) når testene er
+grønne på `main`. Taggene er `latest`, `sha-<kort hash>` og `1.2.3`/`1.2` for git-tagger `v1.2.3`. Lås
+en versjon med `MYTIME_TAG=1.2.3` i `.env`. `docker compose up -d --build` bygger fra kildekoden i
+stedet.
 
 Generer hemmeligheter med `openssl rand -hex 32` (SESSION_SECRET) og `openssl rand -hex 24`
 (POSTGRES_PASSWORD – bruk kun bokstaver og tall, siden det settes inn i en database-URL).
@@ -58,7 +63,7 @@ Generer hemmeligheter med `openssl rand -hex 32` (SESSION_SECRET) og `openssl ra
 Appen lytter på `APP_PORT` (standard `8080`). Databasen lagres i `${DATA_DIR}/postgres`
 (standard `/mnt/user/appdata/mytime/postgres`).
 
-**Oppdatering:** `git pull && docker compose up -d --build`
+**Oppdatering:** `git pull && docker compose pull && docker compose up -d`
 
 ### Reverse proxy
 
@@ -80,6 +85,18 @@ Kan legges inn som et skript i *User Scripts*-pluginen på Unraid.
 ### Helsesjekk
 
 `GET /healthz` svarer `{"ok":true}` når appen og databasen er oppe (brukes av Docker `HEALTHCHECK`).
+
+## Kjøre lokalt med Docker
+
+Uten Node, Postgres eller Entra – kun Docker:
+
+```bash
+docker compose -f compose.local.yml up
+```
+
+Åpne <http://localhost:8080>. «Logg inn» gir en lokal testbruker (`DEV_AUTH_BYPASS`), og dataene
+ligger i Docker-volumet `mytime-local-pg` (`docker compose -f compose.local.yml down -v` sletter dem).
+Legg til `--build` for å teste endringer du ikke har pushet ennå.
 
 ## Utvikling
 

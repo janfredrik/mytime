@@ -76,7 +76,6 @@ export async function getWeek(db: Executor, userId: string, weekStart: string): 
     isoYear: year,
     isoWeek: week,
     status: tc?.status ?? 'draft',
-    submittedAt: tc?.submittedAt?.toISOString() ?? null,
     lastExportedAt: tc?.lastExportedAt?.toISOString() ?? null,
     lines: tc ? await loadLines(db, tc.id) : [],
   };
@@ -119,7 +118,7 @@ export async function saveWeek(
           target: [timecards.userId, timecards.weekStart],
           set: {
             updatedAt: sql`now()`,
-            status: sql`case when ${timecards.status} = 'draft' then 'draft' else 'modified' end`,
+            status: sql`case when ${timecards.status} = 'draft' then 'draft' else 'changed' end`,
           },
         })
         .returning();
@@ -157,24 +156,13 @@ function isUniqueViolation(err: unknown): boolean {
   return false;
 }
 
-export async function submitWeek(db: Db, userId: string, weekStart: string): Promise<Week> {
-  await db
-    .insert(timecards)
-    .values({ userId, weekStart, status: 'submitted', submittedAt: new Date() })
-    .onConflictDoUpdate({
-      target: [timecards.userId, timecards.weekStart],
-      set: { status: 'submitted', submittedAt: sql`now()`, updatedAt: sql`now()` },
-    });
-  return getWeek(db, userId, weekStart);
-}
-
 export async function markExported(db: Db, userId: string, weekStart: string): Promise<void> {
   await db
     .insert(timecards)
-    .values({ userId, weekStart, lastExportedAt: new Date() })
+    .values({ userId, weekStart, status: 'exported', lastExportedAt: new Date() })
     .onConflictDoUpdate({
       target: [timecards.userId, timecards.weekStart],
-      set: { lastExportedAt: sql`now()` },
+      set: { status: 'exported', lastExportedAt: sql`now()` },
     });
 }
 

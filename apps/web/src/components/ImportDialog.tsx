@@ -105,7 +105,7 @@ export function ImportDialog({
         <Upload size={24} className="text-accent" />
         <span className="text-sm font-medium">{file ? file.name : 'Velg eller slipp en .xlsx-fil her'}</span>
         <span className="text-xs text-ink-subtle">
-          Samme format som eksporten: Project number, Project name, Task number, Task name, Type, Date, Hours, Comment
+          Samme format som eksporten fra timesystemet (arket «Timecard»)
         </span>
         <input
           type="file"

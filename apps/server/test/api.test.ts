@@ -76,7 +76,7 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('saves, submits and marks a week as modified', async () => {
+  it('saves, exports and marks a week as changed after later edits', async () => {
     const alice = await login('alice');
     const empty = await alice.get(`/api/weeks/${WEEK}`);
     expect(empty.json()).toMatchObject({ isoWeek: 40, status: 'draft', lines: [] });
@@ -86,11 +86,12 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect(saved.statusCode).toBe(200);
     expect(saved.json().lines[0].entries).toHaveLength(2);
 
-    const submitted = await alice.send('POST', `/api/weeks/${WEEK}/submit`);
-    expect(submitted.json().status).toBe('submitted');
+    await alice.get(`/api/weeks/${WEEK}/export`);
+    const exported = await alice.get(`/api/weeks/${WEEK}`);
+    expect(exported.json().status).toBe('exported');
 
-    const modified = await alice.send('PUT', `/api/weeks/${WEEK}`, { lines: [l] });
-    expect(modified.json().status).toBe('modified');
+    const changed = await alice.send('PUT', `/api/weeks/${WEEK}`, { lines: [l] });
+    expect(changed.json().status).toBe('changed');
 
     const flex = await alice.get('/api/flex');
     expect(flex.json()).toMatchObject({ startDate: WEEK, balance: -16 }); // -2.5 + 2.5 - 8 (ons) - 8 (tor); fredag (i dag) teller ikke
@@ -171,6 +172,7 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect(exported.rawPayload.subarray(0, 2).toString()).toBe('PK');
 
     const week = await alice.get(`/api/weeks/${WEEK}`);
+    expect(week.json()).toMatchObject({ status: 'exported' });
     expect(week.json().lastExportedAt).not.toBeNull();
   });
 

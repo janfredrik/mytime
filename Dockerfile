@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# Bygg- og avhengighetsstegene er ren JavaScript og kjøres på byggemaskinens arkitektur,
+# så multi-arch-bygg (amd64 + arm64) slipper å kjøre npm under emulering.
+
 # ---- Build: install all dependencies and build web + server ----
-FROM node:22-alpine AS build
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
@@ -12,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # ---- Production dependencies for the server only ----
-FROM node:22-alpine AS deps
+FROM --platform=$BUILDPLATFORM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/

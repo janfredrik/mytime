@@ -4,7 +4,9 @@
   var pref = 'auto';
   try {
     pref = localStorage.getItem('mytime-theme') || 'auto';
-  } catch (e) {}
+  } catch {
+    // Storage blocked (private mode, site data off): fall back to the system theme.
+  }
   var dark = pref === 'dark' || (pref !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 })();

@@ -42,35 +42,108 @@ automatisk ved oppstart.
 6. Valgfritt: for å begrense hvem som får logge inn, gå til **Enterprise applications → MyTime →
    Properties**, sett *Assignment required* = Yes og legg til brukere/grupper under *Users and groups*.
 
-## 2. Drift på Unraid (docker compose)
+## 2. Drift med Docker Compose
+
+Krever en maskin med Docker og Docker Compose v2. Appen og PostgreSQL kjører som to containere; TLS
+håndteres av en reverse proxy foran.
+
+### Med repoet
 
 ```bash
-# på Unraid, f.eks. i /mnt/user/appdata/mytime/src
-git clone https://github.com/janfredrik/mytime.git .
+git clone https://github.com/janfredrik/mytime.git
+cd mytime
 cp .env.example .env
 nano .env               # fyll inn Entra-verdier, SESSION_SECRET og POSTGRES_PASSWORD
 docker compose pull && docker compose up -d
 ```
 
+### Uten repoet
+
+Du trenger bare to filer i en tom mappe, f.eks. `/opt/mytime`:
+
+`docker-compose.yml`
+
+```yaml
+services:
+  app:
+    image: ghcr.io/janfredrik/mytime:${MYTIME_TAG:-latest}
+    container_name: mytime
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://mytime:${POSTGRES_PASSWORD}@db:5432/mytime
+    ports:
+      - '${APP_PORT:-3135}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: mytime-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mytime
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: mytime
+      TZ: Europe/Oslo
+    volumes:
+      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mytime -d mytime']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+```
+
+`.env`
+
+```ini
+PUBLIC_URL=https://mytime.x99.no
+
+ENTRA_TENANT_ID=<directory (tenant) id>
+ENTRA_CLIENT_ID=<application (client) id>
+ENTRA_CLIENT_SECRET=<client secret value>
+
+SESSION_SECRET=<openssl rand -hex 32>
+POSTGRES_PASSWORD=<openssl rand -hex 24>
+
+APP_PORT=3135
+DATA_DIR=./data
+TZ=Europe/Oslo
+# MYTIME_TAG=1.2.3
+# SESSION_TTL_DAYS=14
+# LOG_LEVEL=info
+```
+
+Start med `docker compose up -d` og følg med på oppstarten med `docker compose logs -f app`.
+
+### Konfigurasjon
+
+| Variabel | |
+| --- | --- |
+| `PUBLIC_URL` | Offentlig adresse, nøyaktig slik den står i redirect-URI-en |
+| `ENTRA_*` | Fra app registration (se over) |
+| `SESSION_SECRET` | `openssl rand -hex 32` |
+| `POSTGRES_PASSWORD` | `openssl rand -hex 24` – kun bokstaver og tall, siden det settes inn i en database-URL |
+| `APP_PORT` | Port på verten appen lytter på (standard `3135`) |
+| `DATA_DIR` | Hvor databasen lagres, i `${DATA_DIR}/postgres` (standard `./data`) |
+| `MYTIME_TAG` | Låser imageversjon, f.eks. `1.2.3` (standard `latest`) |
+
 GitHub Actions publiserer imaget til `ghcr.io/janfredrik/mytime` (amd64 og arm64) når testene er
-grønne på `main`. Taggene er `latest`, `sha-<kort hash>` og `1.2.3`/`1.2` for git-tagger `v1.2.3`. Lås
-en versjon med `MYTIME_TAG=1.2.3` i `.env`. `docker compose up -d --build` bygger fra kildekoden i
-stedet.
+grønne på `main`. Taggene er `latest`, `sha-<kort hash>` og `1.2.3`/`1.2` for git-tagger `v1.2.3`.
+`docker compose up -d --build` (fra repoet) bygger fra kildekoden i stedet.
 
-Generer hemmeligheter med `openssl rand -hex 32` (SESSION_SECRET) og `openssl rand -hex 24`
-(POSTGRES_PASSWORD – bruk kun bokstaver og tall, siden det settes inn i en database-URL).
-
-Appen lytter på `APP_PORT` (standard `8080`). Databasen lagres i `${DATA_DIR}/postgres`
-(standard `/mnt/user/appdata/mytime/postgres`).
-
-**Oppdatering:** `git pull && docker compose pull && docker compose up -d`
+**Oppdatering:** `docker compose pull && docker compose up -d` (kjør `git pull` først hvis du bruker
+repoet). Databasemigrasjoner kjøres automatisk ved oppstart.
 
 ### Reverse proxy
 
-TLS termineres i eksisterende reverse proxy. Pek `mytime.x99.no` til `http://<unraid-ip>:8080`.
-Proxyen må sende `X-Forwarded-For`/`X-Forwarded-Proto` (standard i Nginx Proxy Manager, SWAG og
-Traefik). `PUBLIC_URL` må være nøyaktig `https://mytime.x99.no`, ellers stemmer ikke redirect-URI-en og
-cookies blir ikke merket `Secure`.
+TLS termineres i eksisterende reverse proxy. Pek `mytime.x99.no` til `http://<docker-vert>:3135`.
+Proxyen må sende `X-Forwarded-For`/`X-Forwarded-Proto` (standard i Nginx Proxy Manager, SWAG,
+Caddy og Traefik). `PUBLIC_URL` må være nøyaktig `https://mytime.x99.no`, ellers stemmer ikke
+redirect-URI-en og cookies blir ikke merket `Secure`.
 
 ### Backup
 
@@ -80,7 +153,7 @@ docker exec mytime-db pg_dump -U mytime mytime | gzip > mytime-$(date +%F).sql.g
 gunzip -c mytime-2026-10-02.sql.gz | docker exec -i mytime-db psql -U mytime mytime
 ```
 
-Kan legges inn som et skript i *User Scripts*-pluginen på Unraid.
+Kan legges inn som en cron-jobb på verten.
 
 ### Helsesjekk
 

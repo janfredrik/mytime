@@ -45,6 +45,35 @@ function dayBg(day: GridDay) {
   return '';
 }
 
+/**
+ * How the line label is laid out. Wide: project, task and type columns. Medium: project and task,
+ * with unusual types after the task. Narrow (phones): one column with the task under the project,
+ * so the hours stay in view.
+ */
+type LabelLayout = 'wide' | 'medium' | 'narrow';
+
+const WIDE = '(min-width: 1280px)';
+const MEDIUM = '(min-width: 640px)';
+
+function currentLayout(): LabelLayout {
+  if (window.matchMedia(WIDE).matches) return 'wide';
+  return window.matchMedia(MEDIUM).matches ? 'medium' : 'narrow';
+}
+
+function useLabelLayout() {
+  const [layout, setLayout] = useState(currentLayout);
+  useEffect(() => {
+    const queries = [WIDE, MEDIUM].map((q) => window.matchMedia(q));
+    const onChange = () => setLayout(currentLayout());
+    queries.forEach((mq) => mq.addEventListener('change', onChange));
+    return () => queries.forEach((mq) => mq.removeEventListener('change', onChange));
+  }, []);
+  return layout;
+}
+
+/** Normal hours are the default; in the narrow layout only other types are worth the room. */
+const isDefaultType = (type: string) => /^normal\b/i.test(type);
+
 function focusCell(row: number, col: number) {
   const el = document.querySelector<HTMLInputElement>(`[data-cell="${row}:${col}"]`);
   el?.focus();
@@ -158,7 +187,7 @@ const HourCell = memo(function HourCell({
             requestAnimationFrame(() => input.select());
           }
         }}
-        className={`tabular h-9 w-full rounded-md border bg-transparent pr-6 pl-1.5 text-right text-sm transition-colors outline-none hover:border-line-strong focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent/25 ${
+        className={`tabular h-8 w-full rounded-md border bg-transparent pr-6 pl-1.5 text-right text-sm transition-colors outline-none hover:border-line-strong focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent/25 ${
           invalid ? 'border-negative bg-negative-soft focus:border-negative focus:ring-negative/25' : 'border-transparent'
         } ${display ? 'font-medium text-ink' : 'text-ink-muted'}`}
       />
@@ -166,7 +195,7 @@ const HourCell = memo(function HourCell({
         <span
           id={errorId}
           role="alert"
-          className="absolute top-full right-0 z-20 mt-1 rounded-md whitespace-nowrap bg-negative px-2 py-1 text-xs font-medium text-white shadow-md"
+          className="absolute top-full right-0 z-20 mt-1 rounded-md whitespace-nowrap bg-negative px-2 py-1 text-xs font-medium text-negative-ink shadow-md"
         >
           Ugyldige timer. Skriv 0–24, f.eks. 7,5
         </span>
@@ -212,6 +241,12 @@ export function TimeGrid({
   onDeleteLine: (id: string) => void;
 }) {
   const [details, setDetails] = useState<{ row: number; col: number; anchor: HTMLElement } | null>(null);
+  const layout = useLabelLayout();
+  const wide = layout === 'wide';
+  const narrow = layout === 'narrow';
+  const labelCols = wide ? 3 : narrow ? 1 : 2;
+  /** Fills the label columns after the sticky first one in the add and footer rows. */
+  const labelRest = labelCols > 1 ? <td colSpan={labelCols - 1} /> : null;
   const [dragId, setDragId] = useState<string | null>(null);
   /** Insertion point while dragging: the line is dropped before this index. */
   const [dropAt, setDropAt] = useState<number | null>(null);
@@ -283,17 +318,30 @@ export function TimeGrid({
       <div className="sr-only" aria-live="polite">
         {announcement}
       </div>
-      <table className="w-full min-w-[860px] border-collapse text-sm">
+      <table className={`w-full ${narrow ? 'min-w-[810px]' : 'min-w-[960px]'} table-fixed border-collapse text-sm`}>
         <thead>
           <tr className="border-b border-line text-xs text-ink-muted">
-            <th scope="col" className="sticky left-0 z-10 bg-surface px-3 py-2.5 text-left font-medium sm:px-4">
-              Prosjekt / oppgave / type
+            <th
+              scope="col"
+              className={`sticky left-0 z-10 bg-surface py-2.5 pr-2 pl-8 text-left font-medium ${narrow ? 'w-[160px]' : ''}`}
+            >
+              {narrow ? 'Prosjekt / oppgave' : 'Prosjekt'}
             </th>
+            {!narrow && (
+              <th scope="col" className={`${wide ? '' : 'w-[150px]'} px-2 py-2.5 text-left font-medium`}>
+                Oppgave
+              </th>
+            )}
+            {wide && (
+              <th scope="col" className="w-[120px] px-2 py-2.5 text-left font-medium">
+                Type
+              </th>
+            )}
             {days.map((d) => (
               <th
                 key={d.date}
                 scope="col"
-                className={`w-[78px] px-1 py-2 text-center font-medium ${dayBg(d)}`}
+                className={`w-[72px] px-1 py-2 text-center font-medium ${dayBg(d)}`}
                 title={d.holiday}
               >
                 <div
@@ -314,7 +362,7 @@ export function TimeGrid({
               </th>
             ))}
             <th scope="col" className="w-[70px] px-3 py-2 text-right font-medium">Sum</th>
-            <th scope="col" className="w-[124px] px-2">
+            <th scope="col" className="w-[76px] px-2">
               <span className="sr-only">Handlinger</span>
             </th>
           </tr>
@@ -339,7 +387,7 @@ export function TimeGrid({
                     : ''
                 }`}
               >
-                <td className="sticky left-0 z-10 w-[150px] max-w-[150px] bg-surface py-1 pr-1 group-hover:bg-subtle sm:w-auto sm:max-w-[340px] sm:pr-2">
+                <td className="sticky left-0 z-10 bg-surface py-1 pr-1 group-hover:bg-subtle">
                   <div className="flex items-center">
                     <button
                       type="button"
@@ -366,37 +414,55 @@ export function TimeGrid({
                           document.querySelector<HTMLElement>(`[data-handle="${line.id}"]`)?.focus(),
                         );
                       }}
-                      className="flex h-9 w-6 shrink-0 cursor-grab items-center justify-center rounded text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing [@media(hover:none)]:opacity-100"
+                      className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing [@media(hover:none)]:opacity-100"
                     >
                       <Grip size={14} />
                     </button>
-                  <button
-                    type="button"
-                    onClick={() => onEditLine(line)}
-                    className="block min-w-0 flex-1 rounded-md px-2 py-1 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
-                    title="Rediger linje"
-                  >
-                    <div className="flex items-baseline gap-2">
-                      <span className="truncate font-medium">
+                    <button
+                      type="button"
+                      onClick={() => onEditLine(line)}
+                      className={`min-w-0 flex-1 rounded-md px-2 py-1 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent ${
+                        narrow ? 'block' : 'flex items-baseline gap-2'
+                      }`}
+                      title={`Rediger linje: ${joinNumberName(line.projectNumber, line.projectName)}`}
+                    >
+                      <span className={`truncate font-medium ${narrow ? 'block' : ''}`}>
                         {line.projectName || line.projectNumber || 'Uten prosjekt'}
                       </span>
-                      {line.projectName && line.projectNumber && (
-                        <span className="tabular hidden shrink-0 text-xs text-ink-subtle sm:inline">{line.projectNumber}</span>
+                      {wide && line.projectName && line.projectNumber && (
+                        <span className="tabular shrink-0 text-xs text-ink-subtle">{line.projectNumber}</span>
                       )}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-ink-muted">
-                      <span className="truncate">{joinNumberName(line.taskNumber, line.taskName) || '–'}</span>
-                      {line.type && (
-                        <span
-                          className="hidden shrink-0 rounded bg-subtle px-1.5 py-px text-[11px] font-medium text-ink-subtle ring-1 ring-line ring-inset sm:inline"
-                        >
-                          {line.type}
+                      {narrow && (
+                        <span className="block truncate text-xs text-ink-muted">
+                          {joinNumberName(line.taskNumber, line.taskName) || '–'}
+                          {line.type && !isDefaultType(line.type) && (
+                            <span className="text-ink-subtle"> · {line.type}</span>
+                          )}
                         </span>
                       )}
-                    </div>
-                  </button>
+                    </button>
                   </div>
                 </td>
+                {/* Task and type open the editor too; the project button is the keyboard entry point. */}
+                {!narrow && (
+                  <td
+                    className="cursor-pointer px-2 py-1 text-ink-muted"
+                    onClick={() => onEditLine(line)}
+                    title={[joinNumberName(line.taskNumber, line.taskName), line.type].filter(Boolean).join(' · ')}
+                  >
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="min-w-0 truncate">{joinNumberName(line.taskNumber, line.taskName) || '–'}</span>
+                      {!wide && line.type && !isDefaultType(line.type) && (
+                        <span className="min-w-0 shrink-[3] truncate text-xs text-ink-subtle">· {line.type}</span>
+                      )}
+                    </div>
+                  </td>
+                )}
+                {wide && (
+                  <td className="cursor-pointer px-2 py-1 text-xs text-ink-subtle" onClick={() => onEditLine(line)}>
+                    <div className="truncate">{line.type}</div>
+                  </td>
+                )}
                 {days.map((d) => (
                   <td
                     key={d.date}
@@ -444,24 +510,27 @@ export function TimeGrid({
             );
           })}
           <tr>
-            <td colSpan={10} className="sticky left-0 px-3 py-2">
+            {/* Only the first column is sticky, so the button stays put without covering the days. */}
+            <td className="sticky left-0 z-10 bg-surface py-2 pr-1 pl-2">
               <button
                 type="button"
                 onClick={onAddLine}
                 aria-keyshortcuts="Alt+N"
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-accent hover:bg-accent-soft"
+                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1.5 text-sm font-medium whitespace-nowrap text-accent hover:bg-accent-soft"
               >
                 <Plus size={15} /> Legg til linje
                 <kbd className="ml-1 hidden sm:inline-block">{altKey} N</kbd>
               </button>
             </td>
+            <td colSpan={labelCols - 1 + 9} />
           </tr>
         </tbody>
         <tfoot className="border-t-2 border-line-strong bg-subtle text-sm">
           <tr>
-            <th scope="row" className="sticky left-0 z-10 bg-subtle px-4 py-2 text-left font-medium text-ink-muted">
+            <th scope="row" className="sticky left-0 z-10 bg-subtle py-2 pr-2 pl-8 text-left font-medium text-ink-muted">
               Sum per dag
             </th>
+            {labelRest}
             {days.map((d, i) => {
               const total = totals[i]!;
               const full = fullDays.get(d.date);
@@ -494,9 +563,10 @@ export function TimeGrid({
             <td />
           </tr>
           <tr className="border-t border-line">
-            <th scope="row" className="sticky left-0 z-10 bg-subtle px-4 py-2 text-left font-medium text-ink-muted">
+            <th scope="row" className="sticky left-0 z-10 bg-subtle py-2 pr-2 pl-8 text-left font-medium text-ink-muted">
               Fleks
             </th>
+            {labelRest}
             {flex.map((f, i) => (
               <td key={days[i]!.date} className={`tabular px-2 py-2 text-right ${flexColor(f)}`}>
                 {f === null ? '' : signedHours(f)}

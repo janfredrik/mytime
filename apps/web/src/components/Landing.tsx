@@ -299,11 +299,8 @@ export function Landing() {
           <p className="mt-5 max-w-[34ch] text-lg leading-relaxed text-ink-muted">
             Før timene, følg fleksen og eksporter rett til timesystemet. Lagres mens du skriver.
           </p>
-          <div className="mt-9 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div className="mt-9">
             <SignInButton />
-            <span className="text-sm text-ink-subtle">
-              eller trykk <kbd>Enter</kbd>
-            </span>
           </div>
           <p className="mt-4 text-sm text-ink-subtle">Bruk jobbkontoen din.</p>
         </section>

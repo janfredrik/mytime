@@ -15,6 +15,13 @@
       "when": 1790938266932,
       "tag": "0001_export_status",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790962014857,
+      "tag": "0002_onboarding",
+      "breakpoints": true
     }
   ]
 }

@@ -45,6 +45,7 @@ function toMe(user: User): Me {
       flexStartBalance: user.flexStartBalance,
       flexStartDate: user.flexStartDate,
     },
+    onboarded: user.onboardedAt !== null,
   };
 }
 
@@ -79,6 +80,11 @@ export async function registerApi(
           .where(eq(users.id, user(req).id))
           .returning();
         return toMe(updated!).settings;
+      });
+
+      api.post('/onboarded', async (req) => {
+        await db.update(users).set({ onboardedAt: new Date() }).where(eq(users.id, user(req).id));
+        return { ok: true };
       });
 
       api.get('/flex', async (req) => weeks.flexSummary(db, user(req), today()));
@@ -136,8 +142,11 @@ export async function registerApi(
             const existing = await weeks.getWeek(db, user(req).id, w.weekStart);
             return {
               ...w,
-              existingLines: existing.lines.length,
               totalHours: w.lines.reduce((sum, l) => sum + lineTotal(l), 0),
+              existingLines: existing.lines.length,
+              existingHours: existing.lines.reduce((sum, l) => sum + lineTotal(l), 0),
+              existingStatus: existing.status,
+              existingExportedAt: existing.lastExportedAt,
             };
           }),
         );

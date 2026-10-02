@@ -21,36 +21,43 @@
   --color-positive-soft: #e6f4ea;
   --color-negative: #b23a0a;
   --color-negative-soft: #fdeee6;
+  --color-negative-ink: #ffffff;
   --color-warning: #875a0b;
   --color-warning-soft: #fdf5dc;
   --color-today: #fbf7e8;
   --color-weekend: #f7f8fa;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-canvas: #0d1217;
-    --color-surface: #151c23;
-    --color-subtle: #1b232c;
-    --color-hover: #222c36;
-    --color-line: #26313c;
-    --color-line-strong: #34414e;
-    --color-ink: #e6ebf0;
-    --color-ink-muted: #b3bdc8;
-    --color-ink-subtle: #909ca8;
-    --color-accent: #2dd4bf;
-    --color-accent-hover: #5eead4;
-    --color-accent-soft: #10302d;
-    --color-accent-ink: #062320;
-    --color-positive: #4ade80;
-    --color-positive-soft: #12291b;
-    --color-negative: #fb923c;
-    --color-negative-soft: #33190d;
-    --color-warning: #facc15;
-    --color-warning-soft: #2e260b;
-    --color-today: #1f1d12;
-    --color-weekend: #12181e;
-  }
+/* data-theme is set before first paint by public/theme.js and updated by src/lib/theme.ts. */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-canvas: #0d1217;
+  --color-surface: #151c23;
+  --color-subtle: #1b232c;
+  --color-hover: #222c36;
+  --color-line: #26313c;
+  --color-line-strong: #34414e;
+  --color-ink: #e6ebf0;
+  --color-ink-muted: #b3bdc8;
+  --color-ink-subtle: #909ca8;
+  --color-accent: #2dd4bf;
+  --color-accent-hover: #5eead4;
+  --color-accent-soft: #10302d;
+  --color-accent-ink: #062320;
+  --color-positive: #4ade80;
+  --color-positive-soft: #12291b;
+  --color-negative: #fb923c;
+  --color-negative-soft: #33190d;
+  /* The dark-mode negative is a light orange, so text on it must be dark. */
+  --color-negative-ink: #2a1206;
+  --color-warning: #facc15;
+  --color-warning-soft: #2e260b;
+  --color-today: #1f1d12;
+  --color-weekend: #12181e;
 }
 
 html,
@@ -77,19 +84,22 @@ body {
   outline-offset: 2px;
 }
 
-kbd {
-  display: inline-block;
-  min-width: 1.4em;
-  padding: 0 0.35em;
-  border: 1px solid var(--color-line-strong);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: var(--color-surface);
-  font-family: var(--font-sans);
-  font-size: 0.85em;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--color-ink-muted);
+/* In the base layer so utilities like `hidden` can still override it. */
+@layer base {
+  kbd {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 0 0.35em;
+    border: 1px solid var(--color-line-strong);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--color-surface);
+    font-family: var(--font-sans);
+    font-size: 0.85em;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--color-ink-muted);
+  }
 }
 
 input[type='time']::-webkit-calendar-picker-indicator,
@@ -97,7 +107,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
   opacity: 0.6;
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme='dark'] {
   input[type='time']::-webkit-calendar-picker-indicator,
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(1);
@@ -229,7 +239,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
   color: #5e5e5e;
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme='dark'] {
   .ms-signin {
     background: #2f2f2f;
     color: #ffffff;
@@ -253,6 +263,482 @@ input[type='date']::-webkit-calendar-picker-indicator {
 @media (prefers-reduced-motion: reduce) {
   .landing-key,
   .landing-caret {
+    animation: none;
+  }
+}
+
+/* ---- First-run welcome ---- */
+
+.welcome-step {
+  display: flex;
+  gap: 0.9rem;
+  padding: 1.1rem 1.15rem 1.2rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.875rem;
+  background: var(--color-surface);
+  transition:
+    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.welcome-step-on {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-line));
+  box-shadow: 0 8px 24px -14px color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.welcome-num {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-top: -0.05rem;
+  border-radius: 999px;
+  background: var(--color-subtle);
+  color: var(--color-ink-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 220ms ease-out,
+    color 220ms ease-out;
+}
+
+.welcome-step-on .welcome-num {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+.welcome-num-done,
+.welcome-step-on .welcome-num-done {
+  background: var(--color-positive-soft);
+  color: var(--color-positive);
+}
+
+.welcome-date {
+  padding: 0 0.1rem;
+  border-bottom: 1px dashed var(--color-line-strong);
+  color: var(--color-ink);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.welcome-date:hover {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* The welcome rises over the timesheet, which blurs out behind it. */
+.welcome-dialog {
+  box-shadow:
+    0 1px 2px rgb(15 30 45 / 0.06),
+    0 32px 80px -24px rgb(15 30 45 / 0.4);
+}
+
+.welcome-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-canvas) 45%, transparent);
+  backdrop-filter: blur(10px) saturate(0.8);
+}
+
+[data-theme='dark'] .welcome-dialog {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.04),
+    0 32px 80px -24px rgb(0 0 0 / 0.8);
+}
+
+.welcome-dialog[open] {
+  animation: welcome-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.welcome-dialog[open]::backdrop {
+  animation: welcome-backdrop 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+
+@keyframes welcome-backdrop {
+  from {
+    background: transparent;
+    backdrop-filter: blur(0) saturate(1);
+  }
+}
+
+
+/* The drawn My Time. Everything is in em, off a font size tied to the container width, so the
+   picture scales as a whole. Its colours are My Time's own, not ours, in both themes. */
+.mti-frame {
+  container-type: inline-size;
+  margin: 0;
+}
+
+.mti {
+  --mti-ink: #1d1d1f;
+  --mti-brand: #25006b;
+  --mti-paper: #f8f3f0;
+  --mti-ring: var(--color-accent);
+  --mti-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  padding-bottom: 5.5em;
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  font-size: clamp(7px, 2cqw, 13px);
+  color: var(--mti-ink);
+}
+
+.mti p {
+  margin: 0;
+}
+
+.mti-window {
+  overflow: hidden;
+  border-radius: 1.1em;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(15 30 45 / 0.08),
+    0 1.5em 3em -1.4em rgb(15 30 45 / 0.35),
+    0 4em 7em -4em rgb(37 0 107 / 0.3);
+}
+
+[data-theme='dark'] .mti-window {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    0 1.5em 3em -1.4em rgb(0 0 0 / 0.7),
+    0 4em 7em -4em rgb(45 212 191 / 0.15);
+}
+
+.mti-chrome {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  height: 3.2em;
+  padding: 0 1.2em;
+  background: #efefef;
+}
+
+.mti-dots {
+  display: flex;
+  gap: 0.55em;
+}
+
+.mti-dots i {
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 50%;
+  background: #ed6a5e;
+}
+
+.mti-dots i:nth-child(2) {
+  background: #f5bf4f;
+}
+
+.mti-dots i:nth-child(3) {
+  background: #61c554;
+}
+
+.mti-address {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0 auto;
+  padding: 0.35em 1.1em;
+  border-radius: 999px;
+  background: #fff;
+  color: #3a3a3c;
+  font-family: var(--font-sans);
+  font-size: 1.05em;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
+}
+
+.mti-lock {
+  width: 0.95em;
+  height: 0.95em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+.mti-head {
+  padding: 1.9em 2.2em 0;
+  background: var(--mti-brand);
+  color: #fff;
+}
+
+.mti-env {
+  display: block;
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.mti-title {
+  display: flex;
+  align-items: center;
+  gap: 1.1em;
+  margin-top: 0.05em;
+  font-size: 4.4em;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.mti-rounds {
+  display: flex;
+  gap: 0.18em;
+  margin-left: 0.15em;
+}
+
+/* The round icon buttons; a purple ring inside hints at their glyphs without copying them. */
+.mti-rounds i {
+  width: 0.34em;
+  height: 0.34em;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 0.07em, var(--mti-brand) 0.075em 0.1em, #fff 0.105em);
+}
+
+.mti-tabs {
+  display: flex;
+  gap: 1.6em;
+  margin-top: 1.5em;
+  overflow: hidden;
+  font-size: 1.35em;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 75%, transparent);
+}
+
+.mti-tabs span {
+  padding-bottom: 0.45em;
+  opacity: 0.85;
+}
+
+.mti-tabs .mti-tab-on {
+  border-bottom: 0.2em solid #fff;
+  font-weight: 700;
+  opacity: 1;
+}
+
+.mti-body {
+  padding: 1.6em 2.2em 2em;
+  background: var(--mti-paper);
+}
+
+.mti-cards {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 2.6em;
+}
+
+.mti-caption {
+  margin-bottom: 0.75em !important;
+  font-size: 1.2em;
+  text-align: center;
+}
+
+.mti-card {
+  position: relative;
+  padding: 1.1em 1em 1.2em;
+  border-radius: 0.6em;
+  background: #fff;
+  color: var(--mti-brand);
+  font-size: 1.15em;
+  text-align: center;
+}
+
+.mti-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.mti-split > div + div {
+  border-left: 1px solid #c9c4d6;
+}
+
+.mti-num {
+  margin: 0.1em 0 !important;
+  font-size: 2.6em;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mti-green {
+  color: #2e7d32;
+}
+
+.mti-status {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-top: 1.5em;
+  font-size: 1.2em;
+}
+
+.mti-pill {
+  padding: 0.3em 1.1em;
+  border-radius: 999px;
+  background: #ecea83;
+  font-weight: 700;
+}
+
+.mti-actions {
+  display: flex;
+  gap: 0.5em;
+  margin-top: 1.7em;
+}
+
+.mti-btn {
+  position: relative;
+  padding: 0.65em 1.6em;
+  background: #58595b;
+  color: #fff;
+  font-size: 1.15em;
+  white-space: nowrap;
+}
+
+.mti-actions .mti-btn:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mti-badge {
+  position: absolute;
+  top: -0.75em;
+  left: -0.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75em;
+  height: 1.75em;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-size: max(0.95em, 10px);
+  font-weight: 700;
+  box-shadow: 0 0 0 1px var(--color-line-strong);
+  transition:
+    background-color 260ms var(--mti-ease),
+    color 260ms var(--mti-ease),
+    transform 260ms var(--mti-ease);
+}
+
+.mti-target {
+  transition:
+    box-shadow 320ms var(--mti-ease),
+    transform 320ms var(--mti-ease);
+}
+
+/* The moment: whichever step you are on lights up its counterpart in the picture. */
+.mti .mti-dim,
+.mti .mti-group,
+.mti .mti-actions .mti-btn,
+.mti-file {
+  transition:
+    opacity 320ms var(--mti-ease),
+    filter 320ms var(--mti-ease);
+}
+
+.mti[data-focus] .mti-dim {
+  opacity: 0.4;
+  filter: saturate(0.4);
+}
+
+.mti[data-focus='flex'] .mti-flex .mti-target,
+.mti[data-focus='import'] .mti-export {
+  box-shadow:
+    0 0 0 0.25em var(--mti-paper),
+    0 0 0 0.45em var(--mti-ring),
+    0 1em 2em -0.8em rgb(37 0 107 / 0.45);
+  transform: translateY(-0.15em);
+}
+
+.mti[data-focus='flex'] .mti-flex .mti-badge,
+.mti[data-focus='import'] .mti-export .mti-badge {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  box-shadow: none;
+  transform: scale(1.12);
+}
+
+.mti[data-focus='flex'] .mti-actions .mti-export,
+.mti[data-focus='flex'] .mti-file {
+  opacity: 0.4;
+  filter: saturate(0.4);
+}
+
+.mti[data-focus='import'] .mti-group {
+  opacity: 0.4;
+  filter: saturate(0.4);
+}
+
+/* The exported file, dropping out of the EXPORT button. */
+.mti-file {
+  position: absolute;
+  bottom: 0;
+  left: 3.2em;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.mti-trail {
+  width: 2.4em;
+  height: 3.6em;
+  margin-bottom: 1.3em;
+  overflow: visible;
+  fill: none;
+  stroke: var(--color-line-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.mti[data-focus='import'] .mti-trail {
+  stroke: var(--color-accent);
+}
+
+.mti-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.7em 1em;
+  border-radius: 0.7em;
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
+  font-family: var(--font-mono);
+  font-size: 1.15em;
+  white-space: nowrap;
+  box-shadow:
+    0 0 0 1px var(--color-line),
+    0 0.8em 1.6em -0.8em rgb(15 30 45 / 0.35);
+}
+
+.mti-chip-icon {
+  width: 1.2em;
+  height: 1.2em;
+  color: var(--color-accent);
+}
+
+
+[data-theme='dark'] .mti-body,
+[data-theme='dark'] .mti-chrome {
+  filter: brightness(0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mti *,
+  .mti-file,
+  .welcome-step,
+  .welcome-num {
+    transition: none !important;
+  }
+  .welcome-dialog[open],
+  .welcome-dialog[open]::backdrop {
     animation: none;
   }
 }

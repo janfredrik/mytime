@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Landing } from './components/Landing';
 import { SettingsDialog } from './components/SettingsDialog';
 import { WeekView } from './components/WeekView';
+import { Welcome } from './components/Welcome';
 import { Clock, Logout, Settings } from './components/icons';
 import { Spinner } from './components/ui';
 import { ApiError, api } from './lib/api';
@@ -113,6 +114,7 @@ export function App() {
           onNavigate={navigate}
         />
       </main>
+      {!user.onboarded && <Welcome user={user} onDone={(week) => week && navigate(week)} />}
       <SettingsDialog open={settingsOpen} settings={user.settings} onClose={() => setSettingsOpen(false)} />
     </div>
   );

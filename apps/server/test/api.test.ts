@@ -150,7 +150,7 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect(preview.statusCode).toBe(200);
     const parsed = preview.json();
     expect(parsed.weeks).toHaveLength(1);
-    expect(parsed.weeks[0]).toMatchObject({ weekStart: WEEK, totalHours: 32, existingLines: 0 });
+    expect(parsed.weeks[0]).toMatchObject({ weekStart: WEEK, totalHours: 32, existingLines: 0, existingHours: 0 });
 
     const commit = await alice.send('POST', '/api/import/commit', {
       weeks: parsed.weeks.map((w: { weekStart: string; lines: unknown[] }) => ({
@@ -185,6 +185,13 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     });
     expect(res.json()).toEqual({ dailyNormHours: 7.5, flexStartBalance: 19, flexStartDate: WEEK });
     expect((await alice.get('/api/me')).json().settings.dailyNormHours).toBe(7.5);
+  });
+
+  it('shows the welcome until it is finished', async () => {
+    const alice = await login('alice');
+    expect((await alice.get('/api/me')).json().onboarded).toBe(false);
+    expect((await alice.send('POST', '/api/onboarded')).statusCode).toBe(200);
+    expect((await alice.get('/api/me')).json().onboarded).toBe(true);
   });
 
   it('logs out', async () => {

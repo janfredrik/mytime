@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8" />
+<title>MyTime reklame</title>
+<style>
+  :root {
+    --canvas: #f4f6f8; --surface: #fff; --subtle: #f1f4f7; --line: #e2e7ed; --line-strong: #cdd5de;
+    --ink: #17212b; --ink-muted: #47525e; --ink-subtle: #5f6b78;
+    --accent: #0f766e; --accent-soft: #e3f3f1; --positive: #12703a; --positive-soft: #e6f4ea;
+    --today: #fbf7e8; --weekend: #f7f8fa; --night: #0b1015;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--night); }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; color: var(--ink); }
+  .tab { font-variant-numeric: tabular-nums; }
+  .layer { position: absolute; inset: 0; }
+
+  /* ---- Scene A: the old system ---- */
+  #sceneA { background: radial-gradient(1200px 800px at 75% 50%, #1b2430, var(--night)); }
+  #old { position: absolute; left: 740px; top: 150px; width: 1380px; border-radius: 14px; box-shadow: 0 40px 120px rgb(0 0 0 / .6); transform-origin: 30% 50%; }
+  #aText { position: absolute; left: 100px; top: 300px; width: 600px; color: #fff; }
+  #aText .l1 { font-size: 60px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.08; }
+  #aText .l2 { font-size: 110px; font-weight: 800; letter-spacing: -0.04em; color: #2dd4bf; margin-top: 28px; }
+
+  /* ---- Wipes ---- */
+  #teal { background: var(--accent); }
+  #light { background: radial-gradient(1400px 900px at 50% 0%, #ffffff, var(--canvas)); }
+  #tealTitle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; }
+  #tealTitle .big { font-size: 150px; font-weight: 800; letter-spacing: -0.045em; }
+  #tealTitle .small { font-size: 40px; font-weight: 500; opacity: .85; margin-top: 12px; letter-spacing: -0.01em; }
+
+  /* ---- Scene B: the new app ---- */
+  #win { position: absolute; left: 160px; top: 96px; width: 1600px; height: 745px; border-radius: 16px; background: var(--canvas); overflow: hidden;
+    box-shadow: 0 1px 2px rgb(15 30 45 / .06), 0 30px 60px -20px rgb(15 30 45 / .25), 0 80px 160px -60px rgb(15 118 110 / .35); transform-origin: 50% 60%; }
+  .chrome { height: 44px; background: #e9edf1; display: flex; align-items: center; padding: 0 18px; gap: 8px; border-bottom: 1px solid var(--line); }
+  .dot { width: 13px; height: 13px; border-radius: 50%; }
+  .url { margin-left: 24px; background: #fff; border-radius: 8px; height: 28px; width: 420px; display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: var(--ink-muted); gap: 8px; }
+  .app { padding: 22px 32px; }
+  .top { display: flex; align-items: center; gap: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 22px; letter-spacing: -0.02em; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+  .week { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-left: 24px; }
+  .week small { font-size: 16px; color: var(--ink-subtle); font-weight: 500; margin-left: 10px; }
+  .saved { margin-left: auto; font-size: 14px; color: var(--ink-subtle); display: flex; gap: 6px; align-items: center; }
+  .btn { height: 40px; padding: 0 16px; border-radius: 9px; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .stats { display: grid; grid-template-columns: 1.35fr 1fr 1fr 1fr; gap: 16px; margin-top: 22px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; box-shadow: 0 1px 2px rgb(15 30 45 / .05); }
+  .card .lab { font-size: 14px; color: var(--ink-muted); font-weight: 500; }
+  .card .val { font-size: 38px; font-weight: 750; letter-spacing: -0.03em; margin-top: 4px; }
+  .card .val span { font-size: 18px; font-weight: 500; color: var(--ink-subtle); margin-left: 6px; letter-spacing: 0; }
+  .card .foot { font-size: 13px; color: var(--ink-subtle); margin-top: 6px; }
+  .bar { height: 8px; background: var(--subtle); border-radius: 99px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; width: 0; }
+  .grid { margin-top: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgb(15 30 45 / .05); }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th { font-size: 14px; color: var(--ink-muted); font-weight: 500; padding: 12px 6px; border-bottom: 1px solid var(--line); position: relative; }
+  th:first-child { text-align: left; padding-left: 22px; }
+  th .dn { display: inline-flex; gap: 5px; align-items: center; justify-content: center; }
+  th .dd { font-size: 13px; color: var(--ink-subtle); }
+  td { border-bottom: 1px solid var(--line); padding: 5px 6px; height: 62px; position: relative; }
+  tr:last-child td { border-bottom: 0; }
+  td.proj { padding-left: 22px; width: 520px; }
+  td.proj b { font-weight: 600; } td.proj em { font-style: normal; font-size: 13px; color: var(--ink-subtle); margin-left: 8px; }
+  td.proj div { font-size: 14px; color: var(--ink-muted); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+  .chip { font-size: 12px; background: var(--subtle); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; color: var(--ink-subtle); font-weight: 500; }
+  .day { width: 112px; } .today { background: var(--today); } .off { background: var(--weekend); }
+  .cell { height: 42px; border-radius: 8px; border: 1.5px solid transparent; display: flex; align-items: center; justify-content: flex-end; padding-right: 14px; font-weight: 600; font-size: 18px; position: relative; }
+  .cell.focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 4px rgb(15 118 110 / .18); }
+  .caret { display: inline-block; width: 2px; height: 22px; background: var(--accent); margin-left: 2px; }
+  td.sum, th.sum { width: 100px; text-align: right; padding-right: 22px; font-weight: 650; }
+  tfoot td { height: 54px; background: var(--subtle); font-weight: 650; font-size: 15px; color: var(--ink-muted); }
+  tfoot td.tot { text-align: right; padding-right: 20px; color: var(--ink); }
+  .wash { position: absolute; inset: 0; background: var(--positive); opacity: 0; pointer-events: none; }
+  .check { color: var(--positive); display: inline-block; opacity: 0; }
+  #ring { position: absolute; border-radius: 50%; border: 3px solid var(--positive); opacity: 0; pointer-events: none; }
+  #keys { position: absolute; right: 160px; bottom: 112px; display: flex; gap: 8px; }
+  kbd { min-width: 46px; height: 46px; padding: 0 10px; display: grid; place-items: center; font: 600 20px ui-sans-serif, system-ui; color: var(--ink-muted);
+    background: #fff; border: 1px solid var(--line-strong); border-bottom-width: 3px; border-radius: 9px; box-shadow: 0 4px 10px rgb(15 30 45 / .08); }
+  kbd.last { color: var(--accent); border-color: var(--accent); }
+  #toast { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); background: var(--ink); color: #fff; border-radius: 12px; padding: 14px 20px; font-size: 16px; display: flex; gap: 12px; align-items: center; box-shadow: 0 20px 40px rgb(0 0 0 / .25); white-space: nowrap; opacity: 0; }
+  #toast .ok { width: 26px; height: 26px; border-radius: 50%; background: #4ade80; display: grid; place-items: center; }
+  #cursor { position: absolute; width: 30px; height: 30px; pointer-events: none; opacity: 0; filter: drop-shadow(0 3px 4px rgb(0 0 0 / .3)); }
+  #caption { position: absolute; left: 0; right: 0; bottom: 115px; text-align: center; }
+  #caption span { display: inline-block; font-size: 44px; font-weight: 700; letter-spacing: -0.025em; color: var(--ink); }
+  #caption span b { color: var(--accent); }
+
+  /* ---- Scene C: end card ---- */
+  #endTeal { background: radial-gradient(1400px 900px at 50% 40%, #13867d, #0b5a54); }
+  #end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; }
+  #end .mark { display: flex; align-items: center; gap: 30px; }
+  #end .logo { width: 128px; height: 128px; border-radius: 32px; background: #fff; display: grid; place-items: center; box-shadow: 0 30px 60px rgb(0 0 0 / .25); }
+  #end .name { font-size: 170px; font-weight: 800; letter-spacing: -0.05em; }
+  #end .tag { font-size: 56px; font-weight: 600; letter-spacing: -0.025em; margin-top: 26px; }
+  #end .url2 { font-size: 30px; opacity: .8; margin-top: 30px; font-weight: 500; letter-spacing: 0.01em; display: flex; gap: 18px; align-items: center; }
+  #end .ms { display: inline-flex; gap: 10px; align-items: center; background: #fff; color: #5e5e5e; font-size: 24px; font-weight: 600; padding: 12px 20px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="stage" class="layer">
+  <div id="sceneA" class="layer">
+    <img id="old" src="old-mytime.webp" alt="" />
+    <div id="aText"><div class="l1">Sånn har timeføring sett ut.</div><div class="l2">Til nå.</div></div>
+  </div>
+
+  <div id="teal" class="layer">
+    <div id="tealTitle"><div class="big">Møt nye MyTime.</div><div class="small">Samme timer. Samme Excel. Bare raskere.</div></div>
+  </div>
+
+  <div id="light" class="layer">
+    <div id="win">
+      <div class="chrome"><i class="dot" style="background:#ff5f57"></i><i class="dot" style="background:#febc2e"></i><i class="dot" style="background:#28c840"></i>
+        <div class="url">🔒 mytime.x99.no/?uke=2026-09-28</div></div>
+      <div class="app">
+        <div class="top">
+          <div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>MyTime</div>
+          <div class="week">Uke 40 <small>28. sep – 4. okt 2026</small></div>
+          <div class="saved" id="saved">✓ Lagret</div>
+          <div class="btn">Kopier forrige uke</div>
+          <div class="btn">Importer</div>
+          <div class="btn primary" id="exportBtn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Eksporter</div>
+        </div>
+        <div class="stats">
+          <div class="card"><div class="lab">Ført denne uka</div><div class="val tab"><b id="sTotal">0</b><span>av 40 t</span></div><div class="bar"><i id="sBar"></i></div></div>
+          <div class="card"><div class="lab">Fleks denne uka</div><div class="val tab" id="sFlex">±0</div><div class="foot">Timer minus dagsnorm</div></div>
+          <div class="card"><div class="lab">Fleksbalanse</div><div class="val tab"><b id="sBal">19</b><span>t</span></div><div class="foot">Med norske helligdager</div></div>
+          <div class="card"><div class="lab">Status</div><div class="val" id="sStatus" style="font-size:30px;margin-top:10px">Utkast</div></div>
+        </div>
+        <div class="grid">
+          <table>
+            <thead><tr id="head"><th>Prosjekt / oppgave / type</th></tr></thead>
+            <tbody id="body"></tbody>
+            <tfoot><tr id="foot"><td style="padding-left:22px">Sum per dag</td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+      <div id="toast"><div class="ok"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#062320" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></div>Lastet ned <b>week40_02102026130256.xlsx</b> (4 linjer, 41,5 t). Last den opp i timesystemet.</div>
+      <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2l16 10.5-7 1.5 4 7.5-3 1.5-4-7.5-6 5z" fill="#111" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <div id="ring"></div>
+    </div>
+    <div id="keys"></div>
+    <div id="caption"><span></span></div>
+  </div>
+
+  <div id="endTeal" class="layer">
+    <div id="end">
+      <div class="mark"><div class="logo"><svg width="76" height="76" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path id="hand" d="M12 7v5l3 2"/></svg></div><div class="name">MyTime</div></div>
+      <div class="tag">Uka ført på sekunder.</div>
+      <div class="url2"><span>mytime.x99.no</span><span class="ms"><svg width="22" height="22" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>Logg inn med Microsoft</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DUR = 10;
+const DAYS = [
+  { n: 'Man', d: '28.09' }, { n: 'Tir', d: '29.09' }, { n: 'Ons', d: '30.09' }, { n: 'Tor', d: '01.10' },
+  { n: 'Fre', d: '02.10', today: true }, { n: 'Lør', d: '03.10', off: true }, { n: 'Søn', d: '04.10', off: true },
+];
+const ROWS = [
+  { p: 'NTE MS Security Consultancy', no: '257471', task: '03 NTE Sikkerhetsteam', type: 'Normal', h: [6, 4, 4, 4, 6] },
+  { p: 'Servicegrossistene CA Delivery', no: '305512', task: '12.02 Senior – Klient', type: 'Normal', h: [2, 2, 3, 1.5, 1] },
+  { p: 'Eika T&M', no: '244954', task: 'Eika_Gruppen – Bill. Order', type: 'Normal', h: [0.5, 1.5, 1, 2, 0.5] },
+  { p: 'OU424 Absence', no: '266411', task: '4 – Lunch', type: 'Normal', h: [0.5, 0.5, 0.5, 0.5, 0.5] },
+];
+const fmt = (n) => (Math.round(n * 100) / 100).toString().replace('.', ',');
+const signed = (n) => (n > 0 ? '+' : n < 0 ? '−' : '±') + fmt(Math.abs(n));
+
+// ---- Build table ----
+const head = document.getElementById('head'), body = document.getElementById('body'), foot = document.getElementById('foot');
+DAYS.forEach((d, c) => {
+  const cls = d.today ? 'today' : d.off ? 'off' : '';
+  head.insertAdjacentHTML('beforeend', `<th class="day ${cls}"><div class="wash" data-wash="${c}"></div><div class="dn" style="${d.today ? 'color:var(--accent);font-weight:700' : ''}">${d.n}<svg class="check" data-check="${c}" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></div><div class="dd tab">${d.d}</div></th>`);
+  foot.insertAdjacentHTML('beforeend', `<td class="tab ${cls}" style="text-align:right;padding-right:20px;position:relative"><div class="wash" data-wash="${c}"></div><span data-ft="${c}"></span></td>`);
+});
+head.insertAdjacentHTML('beforeend', '<th class="sum">Sum</th>');
+foot.insertAdjacentHTML('beforeend', '<td class="tot tab" id="fTot">0</td>');
+ROWS.forEach((r, ri) => {
+  let html = `<tr><td class="proj"><b>${r.p}</b><em class="tab">${r.no}</em><div>${r.task}<span class="chip">${r.type}</span></div></td>`;
+  DAYS.forEach((d, c) => {
+    const cls = d.today ? 'today' : d.off ? 'off' : '';
+    html += `<td class="day ${cls}"><div class="wash" data-wash="${c}"></div><div class="cell tab" id="c${ri}_${c}"></div></td>`;
+  });
+  html += `<td class="sum tab" id="rs${ri}"></td></tr>`;
+  body.insertAdjacentHTML('beforeend', html);
+});
+const washes = [...document.querySelectorAll('[data-wash]')];
+washes.forEach((w) => { const tr = w.closest('tr'); w.dataset.row = tr ? [...tr.parentElement.children].indexOf(tr) + (tr.parentElement.tagName === 'TBODY' ? 1 : tr.parentElement.tagName === 'TFOOT' ? 5 : 0) : 0; });
+
+// ---- Keystroke script ----
+const T0 = 4.05, T1 = 6.75;
+let raw = [], t = 0;
+for (let c = 0; c < 5; c++) {
+  const pace = 1 - (c / 4) * 0.55;
+  if (c > 0) { raw.push({ t, kind: 'move', cell: [0, c], key: '→' }); t += 0.22 * pace; }
+  else raw.push({ t, kind: 'move', cell: [0, 0] });
+  ROWS.forEach((r, ri) => {
+    if (ri > 0) { raw.push({ t, kind: 'move', cell: [ri, c], key: '⏎' }); t += 0.14 * pace; }
+    const text = fmt(r.h[c]);
+    [...text].forEach((ch, k) => { t += (k === 0 ? 0.12 : 0.08) * pace; raw.push({ t, kind: 'type', cell: [ri, c], text: text.slice(0, k + 1), key: ch }); });
+  });
+  t += 0.1 * pace; raw.push({ t, kind: 'stamp', c }); t += 0.08 * pace;
+}
+const scale = (T1 - T0) / t;
+const EV = raw.map((e) => ({ ...e, t: T0 + e.t * scale }));
+const STAMPS = EV.filter((e) => e.kind === 'stamp');
+
+// ---- Helpers ----
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const p = (t, a, b) => clamp((t - a) / (b - a));
+const outC = (x) => 1 - Math.pow(1 - x, 3);
+const outQ = (x) => 1 - Math.pow(1 - x, 5);
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const outBack = (x) => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+const $ = (id) => document.getElementById(id);
+const circle = (el, r, x = '50%', y = '50%') => { el.style.clipPath = `circle(${r}px at ${x} ${y})`; };
+
+const captions = [
+  { a: 4.0, b: 5.45, html: 'Bare tastaturet. <b>Tall, Enter, ferdig.</b>' },
+  { a: 5.45, b: 6.85, html: 'Full dag? <b>Stemplet.</b> Fleksen regnes ut.' },
+  { a: 6.85, b: 8.35, html: 'Ett klikk: <b>Excel klar</b> for timesystemet.' },
+];
+
+let BTN = null;
+// Export button position (inside the window, and on stage), measured once with the window at rest.
+function btnPos() {
+  if (BTN) return BTN;
+  const light = $('light'), win = $('win');
+  const prev = [light.style.display, win.style.transform];
+  light.style.display = 'block'; win.style.transform = 'none';
+  const b = $('exportBtn').getBoundingClientRect(), w = win.getBoundingClientRect();
+  light.style.display = prev[0]; win.style.transform = prev[1];
+  return (BTN = { tx: b.left - w.left + 70, ty: b.top - w.top + 22, sx: b.left + 60, sy: b.top + 20 });
+}
+
+function render(t) {
+  // Scene A
+  const a = $('sceneA');
+  a.style.opacity = 1 - p(t, 2.25, 2.6);
+  const fall = inOut(p(t, 1.85, 2.5));
+  const oldIn = outC(p(t, 0, 0.7));
+  $('old').style.transform = `translate(${lerp(120, 0, oldIn)}px, ${fall * 700}px) perspective(2000px) rotateY(${lerp(-14, -6, oldIn)}deg) rotate(${fall * 9}deg) scale(${lerp(1, 1.1, p(t, 0, 2))})`;
+  $('old').style.filter = `grayscale(${lerp(0, 0.9, p(t, 1.2, 1.9))}) brightness(${lerp(1, 0.6, p(t, 1.2, 1.9))})`;
+  $('old').style.opacity = oldIn;
+  const l1 = outC(p(t, 0.25, 0.75)), l2 = outBack(p(t, 1.15, 1.5));
+  $('aText').querySelector('.l1').style.cssText = `opacity:${l1};transform:translateY(${(1 - l1) * 30}px)`;
+  $('aText').querySelector('.l2').style.cssText = `opacity:${p(t, 1.15, 1.3)};transform:scale(${lerp(0.6, 1, l2)});transform-origin:left center`;
+  $('aText').style.opacity = 1 - p(t, 2.0, 2.3);
+
+  // Teal reveal + title
+  const tealR = outC(p(t, 2.2, 2.75)) * 1250;
+  const teal = $('teal');
+  teal.style.display = t > 2.2 && t < 3.75 ? 'block' : 'none';
+  circle(teal, tealR, '62%', '55%');
+  const ti = outQ(p(t, 2.45, 2.95));
+  const tt = $('tealTitle');
+  tt.querySelector('.big').style.cssText = `opacity:${ti};transform:translateY(${(1 - ti) * 60}px) scale(${lerp(0.94, 1, ti) + p(t, 2.95, 3.6) * 0.04})`;
+  tt.querySelector('.small').style.cssText = `opacity:${outC(p(t, 2.75, 3.15)) * 0.85};transform:translateY(${(1 - outC(p(t, 2.75, 3.15))) * 30}px)`;
+
+  // Light scene
+  const light = $('light');
+  light.style.display = t > 3.2 && t < 9.4 ? 'block' : 'none';
+  circle(light, inOut(p(t, 3.2, 3.7)) * 1250, '50%', '50%');
+  const winIn = outQ(p(t, 3.4, 4.05));
+  const zoom = lerp(1, 1.035, inOut(p(t, 4.1, 6.4))) - 0.035 * inOut(p(t, 6.6, 7.1));
+  const winOut = inOut(p(t, 8.3, 8.85));
+  $('win').style.transform = `translateY(${(1 - winIn) * 220 - winOut * 40}px) scale(${lerp(0.9, 1, winIn) * zoom * (1 - winOut * 0.12)}) rotateX(${(1 - winIn) * 12}deg)`;
+  $('win').style.opacity = winIn;
+
+  // Grid state from events
+  const typed = {}; let focus = null; const keys = [];
+  for (const e of EV) {
+    if (e.t > t) break;
+    if (e.kind === 'move') focus = e.cell;
+    if (e.kind === 'type') { typed[e.cell.join()] = e.text; focus = e.cell; }
+    if (e.kind === 'stamp') focus = null;
+    if (e.key) keys.push(e);
+  }
+  if (t > T1 + 0.05) focus = null;
+  const val = (r, c) => Number((typed[r + ',' + c] || '0').replace(',', '.')) || 0;
+  const dayTot = [0, 1, 2, 3, 4, 5, 6].map((c) => ROWS.reduce((s, _, r) => s + val(r, c), 0));
+  const total = dayTot.reduce((x, y) => x + y, 0);
+  ROWS.forEach((_, r) => {
+    for (let c = 0; c < 7; c++) {
+      const el = $(`c${r}_${c}`);
+      const f = focus && focus[0] === r && focus[1] === c;
+      el.className = 'cell tab' + (f ? ' focus' : '');
+      const txt = typed[r + ',' + c] || '';
+      el.innerHTML = txt + (f && Math.floor(t * 3) % 2 === 0 ? '<i class="caret"></i>' : '');
+    }
+    const rs = ROWS[r].h.reduce((s, _, c) => s + val(r, c), 0);
+    $(`rs${r}`).textContent = rs ? fmt(rs) : '';
+  });
+  document.querySelectorAll('[data-ft]').forEach((el) => { const c = +el.dataset.ft; el.textContent = dayTot[c] ? fmt(dayTot[c]) : ''; });
+  $('fTot').textContent = fmt(total);
+
+  // Stamps: check pops, column washes row by row, ring on the header
+  let flexWeek = 0;
+  STAMPS.forEach((s) => {
+    const dt = t - s.t;
+    const done = dt >= 0;
+    if (done) flexWeek += dayTot[s.c] - 8;
+    const ck = document.querySelector(`[data-check="${s.c}"]`);
+    const k = p(dt, 0, 0.42);
+    ck.style.opacity = done ? 1 : 0;
+    ck.style.transform = `scale(${lerp(2.2, 1, outBack(k))}) rotate(${lerp(-18, 0, outC(k))}deg)`;
+  });
+  washes.forEach((w) => {
+    const s = STAMPS[+w.dataset.wash];
+    if (!s) return;
+    const dt = t - s.t - w.dataset.row * 0.045;
+    w.style.opacity = dt < 0 ? 0 : 0.22 * (1 - outC(p(dt, 0, 0.9)));
+  });
+
+  // Stats
+  $('sTotal').textContent = fmt(total);
+  $('sBar').style.width = Math.min(100, (total / 40) * 100) + '%';
+  $('sFlex').textContent = signed(flexWeek);
+  $('sFlex').style.color = flexWeek > 0 ? 'var(--positive)' : 'var(--ink)';
+  $('sBal').textContent = fmt(19 + flexWeek);
+  $('saved').innerHTML = focus ? '<span style="opacity:.8">● Lagrer…</span>' : '✓ Lagret';
+
+  // Key ticker
+  const kEl = $('keys');
+  const recent = keys.slice(-7);
+  kEl.style.opacity = 1 - p(t, 6.85, 7.1);
+  kEl.innerHTML = recent.map((e, i) => {
+    const d = outC(p(t - e.t, 0, 0.22));
+    return `<kbd class="${i === recent.length - 1 ? 'last' : ''}" style="opacity:${d};transform:translateY(${(1 - d) * -10}px)">${e.key}</kbd>`;
+  }).join('');
+
+  // Cursor → export click → toast + status
+  const btn = $('exportBtn'), win = $('win');
+  const cur = $('cursor');
+  const cm = inOut(p(t, 6.75, 7.2));
+  cur.style.opacity = p(t, 6.7, 6.85) * (1 - p(t, 7.9, 8.1));
+  const { tx, ty, sx, sy } = btnPos();
+  cur.style.left = lerp(1000, tx, cm) + 'px';
+  cur.style.top = lerp(620, ty, cm) + 'px';
+  const press = p(t, 7.25, 7.33) - p(t, 7.36, 7.46);
+  btn.style.transform = `scale(${1 - press * 0.06})`;
+  btn.style.boxShadow = t > 7.25 ? `0 0 0 ${outC(p(t, 7.25, 7.8)) * 16}px rgb(15 118 110 / ${0.35 * (1 - p(t, 7.25, 7.8))})` : 'none';
+  const toast = outBack(p(t, 7.45, 7.8));
+  $('toast').style.opacity = p(t, 7.45, 7.6);
+  $('toast').style.transform = `translateX(-50%) translateY(${(1 - toast) * 40}px)`;
+  const st = $('sStatus');
+  if (t > 7.45) { st.innerHTML = '✓ Eksportert'; st.style.color = 'var(--positive)'; } else { st.textContent = 'Utkast'; st.style.color = 'var(--ink-muted)'; }
+
+  // Captions
+  const capEl = $('caption').firstElementChild;
+  const cap = captions.find((c) => t >= c.a && t < c.b);
+  if (cap) {
+    const i = outC(p(t, cap.a, cap.a + 0.3)), o = p(t, cap.b - 0.2, cap.b);
+    capEl.innerHTML = cap.html;
+    capEl.style.opacity = i * (1 - o);
+    capEl.style.transform = `translateY(${(1 - i) * 24 - o * 12}px)`;
+  } else capEl.style.opacity = 0;
+
+  // End card
+  const end = $('endTeal');
+  end.style.display = t > 8.3 ? 'block' : 'none';
+  circle(end, inOut(p(t, 8.3, 8.9)) * 1900, `${sx}px`, `${sy}px`);
+  const e1 = outBack(p(t, 8.6, 9.05)), e2 = outC(p(t, 8.95, 9.35)), e3 = outC(p(t, 9.2, 9.6));
+  const endEl = $('end');
+  endEl.querySelector('.mark').style.cssText = `opacity:${p(t, 8.6, 8.8)};transform:scale(${lerp(0.7, 1, e1)})`;
+  endEl.querySelector('.tag').style.cssText = `opacity:${e2};transform:translateY(${(1 - e2) * 30}px)`;
+  endEl.querySelector('.url2').style.cssText = `opacity:${e3 * 0.9};transform:translateY(${(1 - e3) * 20}px)`;
+  $('hand').style.transformOrigin = '12px 12px';
+  $('hand').style.transform = `rotate(${outQ(p(t, 8.6, 9.6)) * 360}deg)`;
+}
+window.render = render;
+
+if (!location.search.includes('capture')) {
+  let start = performance.now();
+  const loop = (now) => { let s = (now - start) / 1000; if (s > DUR + 1.5) { start = now; s = 0; } render(Math.min(s, DUR)); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+} else render(0);
+</script>
+</body>
+</html>

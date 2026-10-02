@@ -1,4 +1,4 @@
-import { type Entry, formatHours, parseHours } from '@mytime/shared';
+import { type Entry, TEXT_LIMITS, formatHours, parseHours } from '@mytime/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { dayName, longDate } from '../lib/format';
@@ -139,6 +139,7 @@ export function EntryPopover({
             rows={4}
             className={`${inputClass} resize-y`}
             value={comment}
+            maxLength={TEXT_LIMITS.comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Hva ble gjort?"
           />

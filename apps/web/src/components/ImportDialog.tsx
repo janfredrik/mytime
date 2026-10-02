@@ -1,7 +1,7 @@
-import { type ImportPreview, addDays, formatHours, isoWeekOf } from '@mytime/shared';
+import { type ImportPreview, type ImportPreviewWeek, addDays, formatHours, isoWeekOf } from '@mytime/shared';
 import { useState } from 'react';
 import { api } from '../lib/api';
-import { shortDate } from '../lib/format';
+import { dateTime, shortDate } from '../lib/format';
 import { Alert, Upload } from './icons';
 import { Button, Dialog, Spinner } from './ui';
 
@@ -67,6 +67,17 @@ export function ImportDialog({
     }
   };
 
+  const replacing = preview?.weeks.filter((w) => w.existingLines > 0).length ?? 0;
+  const weekCount = preview?.weeks.length ?? 0;
+  const commitLabel =
+    replacing === 0
+      ? weekCount > 1
+        ? `Importer ${weekCount} uker`
+        : 'Importer'
+      : weekCount > 1
+        ? `Importer ${weekCount} uker, erstatt ${replacing}`
+        : `Erstatt uke ${isoWeekOf(preview!.weeks[0]!.weekStart).week}`;
+
   const issues = preview ? [...preview.errors.map((i) => ({ ...i, kind: 'error' as const })), ...preview.warnings.map((i) => ({ ...i, kind: 'warning' as const }))] : [];
 
   return (
@@ -82,7 +93,7 @@ export function ImportDialog({
           </Button>
           <Button variant="primary" onClick={commit} disabled={!preview || preview.weeks.length === 0 || busy}>
             {busy && preview ? <Spinner /> : null}
-            Importer {preview && preview.weeks.length > 1 ? `${preview.weeks.length} uker` : ''}
+            {commitLabel}
           </Button>
         </>
       }
@@ -153,11 +164,7 @@ export function ImportDialog({
                     <td className="tabular py-2 text-right">{w.lines.length}</td>
                     <td className="tabular py-2 text-right font-medium">{formatHours(w.totalHours)}</td>
                     <td className="py-2 pl-4 text-xs">
-                      {w.existingLines > 0 ? (
-                        <span className="text-warning">Erstatter {w.existingLines} eksisterende linjer</span>
-                      ) : (
-                        <span className="text-ink-subtle">Ny uke</span>
-                      )}
+                      <ReplaceNote week={w} />
                     </td>
                   </tr>
                 ))}
@@ -185,5 +192,25 @@ export function ImportDialog({
         </div>
       )}
     </Dialog>
+  );
+}
+
+/** What committing would overwrite in a week. Already exported weeks get the strongest warning. */
+function ReplaceNote({ week }: { week: ImportPreviewWeek }) {
+  if (week.existingLines === 0) return <span className="text-ink-subtle">Ny uke</span>;
+  const lines = `${week.existingLines} ${week.existingLines === 1 ? 'linje' : 'linjer'}`;
+  return (
+    <div className="space-y-0.5">
+      <div className="text-warning">
+        Erstatter {lines}
+        {week.existingHours > 0 && <span className="tabular"> · {formatHours(week.existingHours)} t</span>}
+      </div>
+      {week.existingStatus !== 'draft' && week.existingExportedAt && (
+        <div className="flex items-center gap-1 font-medium text-negative">
+          <Alert size={12} className="shrink-0" />
+          Eksportert {dateTime(week.existingExportedAt)}
+        </div>
+      )}
+    </div>
   );
 }

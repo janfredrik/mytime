@@ -19,7 +19,7 @@ import { api } from '../lib/api';
 import { dateTime, dayName, longDate, shortDate, signedHours } from '../lib/format';
 import { newLine } from '../lib/lines';
 import { useCelebrate } from '../lib/useCelebrate';
-import { useWeekEditor } from '../lib/useWeekEditor';
+import { type SaveErrorKind, type SaveState, useWeekEditor } from '../lib/useWeekEditor';
 import { ImportDialog } from './ImportDialog';
 import { LineEditor } from './LineEditor';
 import { MiniCalendar } from './MiniCalendar';
@@ -63,7 +63,28 @@ function StatCard({ label, children, footer }: { label: string; children: ReactN
   );
 }
 
-function SaveIndicator({ state, error }: { state: string; error: string | null }) {
+function SaveIndicator({
+  state,
+  error,
+  kind,
+  onRetry,
+}: {
+  state: SaveState;
+  error: string | null;
+  kind: SaveErrorKind | null;
+  onRetry: () => void;
+}) {
+  if (state === 'error' && kind === 'transient')
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-warning" title={error ?? undefined}>
+        <Alert size={13} /> Ikke lagret ennå, prøver igjen
+        <button type="button" onClick={onRetry} className="font-medium underline underline-offset-2 hover:text-ink">
+          Prøv nå
+        </button>
+      </span>
+    );
+  // Sign-in and rejected data get the banner above the grid instead.
+  if (state === 'error') return null;
   if (state === 'saving' || state === 'pending')
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-ink-subtle">
@@ -76,13 +97,41 @@ function SaveIndicator({ state, error }: { state: string; error: string | null }
         <Check size={13} /> Lagret
       </span>
     );
-  if (state === 'error')
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-negative" title={error ?? undefined}>
-        <Alert size={13} /> Ikke lagret{error ? `: ${error}` : ''}
-      </span>
-    );
   return null;
+}
+
+/** Problems a retry can't fix on its own: the user has to sign in again or change the data. */
+function SaveBanner({ error, kind }: { error: string | null; kind: SaveErrorKind | null }) {
+  if (kind !== 'auth' && kind !== 'rejected') return null;
+  const returnTo = window.location.pathname + window.location.search;
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-negative/30 bg-negative-soft px-4 py-3 text-sm"
+    >
+      <Alert className="shrink-0 text-negative" />
+      <p className="min-w-0 flex-1 text-ink">
+        {kind === 'auth' ? (
+          <>
+            <span className="font-semibold">Økten er utløpt.</span> Endringene dine er tatt vare på i denne fanen og
+            lagres når du har logget inn igjen.
+          </>
+        ) : (
+          <>
+            <span className="font-semibold">Endringene ble ikke lagret.</span> {error}
+          </>
+        )}
+      </p>
+      {kind === 'auth' && (
+        <a
+          href={`/auth/login?returnTo=${encodeURIComponent(returnTo)}`}
+          className="inline-flex shrink-0 items-center rounded-lg bg-accent px-3 py-1.5 font-medium text-accent-ink hover:bg-accent-hover"
+        >
+          Logg inn igjen
+        </a>
+      )}
+    </div>
+  );
 }
 
 export function WeekView({
@@ -365,7 +414,12 @@ export function WeekView({
           </>
         )}
         <div className="ml-auto flex items-center gap-3">
-          <SaveIndicator state={editor.saveState} error={editor.saveError} />
+          <SaveIndicator
+            state={editor.saveState}
+            error={editor.saveError}
+            kind={editor.saveErrorKind}
+            onRetry={() => void editor.flush()}
+          />
           <Button
             variant={status === 'exported' ? 'secondary' : 'primary'}
             onClick={exportWeek}
@@ -377,9 +431,12 @@ export function WeekView({
         </div>
       </div>
 
+      <SaveBanner error={editor.saveError} kind={editor.saveErrorKind} />
+
       {editor.loadError ? (
-        <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-negative">
-          Kunne ikke laste uka: {editor.loadError.message}
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface p-8 text-center text-sm">
+          <p className="text-negative">Kunne ikke laste uka. {editor.loadError.message}</p>
+          <Button onClick={() => void editor.reload()}>Prøv igjen</Button>
         </div>
       ) : !lines ? (
         <div className="flex items-center justify-center gap-2 rounded-xl border border-line bg-surface p-12 text-sm text-ink-muted">
@@ -470,7 +527,7 @@ export function WeekView({
           onFocus={() => setToastPaused(true)}
           onBlur={() => setToastPaused(false)}
           className={`fixed right-4 bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg py-2 pr-2 pl-4 text-sm font-medium shadow-lg sm:left-auto sm:max-w-md ${
-            toast.kind === 'ok' ? 'bg-ink text-canvas' : 'bg-negative text-white'
+            toast.kind === 'ok' ? 'bg-ink text-canvas' : 'bg-negative text-negative-ink'
           }`}
         >
           <span className="shrink-0">{toast.kind === 'ok' ? <Check /> : <Alert />}</span>

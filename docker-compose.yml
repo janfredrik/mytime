@@ -1,5 +1,5 @@
-# MyTime på Unraid. TLS termineres i eksisterende reverse proxy (NPM/SWAG/Traefik/Cloudflare Tunnel),
-# som videresender https://mytime.x99.no til APP_PORT på Unraid-serveren.
+# MyTime i produksjon. TLS termineres i eksisterende reverse proxy (NPM/SWAG/Traefik/Cloudflare Tunnel),
+# som videresender https://mytime.x99.no til APP_PORT på Docker-verten.
 services:
   app:
     # Ferdig image fra GitHub Actions. `docker compose up -d --build` bygger lokalt i stedet.
@@ -12,7 +12,7 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgres://mytime:${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD i .env}@db:5432/mytime
     ports:
-      - '${APP_PORT:-8080}:3000'
+      - '${APP_PORT:-3135}:3000'
     depends_on:
       db:
         condition: service_healthy
@@ -27,7 +27,7 @@ services:
       POSTGRES_DB: mytime
       TZ: Europe/Oslo
     volumes:
-      - ${DATA_DIR:-/mnt/user/appdata/mytime}/postgres:/var/lib/postgresql/data
+      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U mytime -d mytime']
       interval: 10s

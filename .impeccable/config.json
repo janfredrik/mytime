@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "promo/promo.html"
+        ],
+        "createdAt": "2026-10-02T12:45:23.436Z",
+        "reason": "Claude: the halos are the app's real focus ring and click-pulse feedback, recreated in a promo video"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "promo/promo.html"
+        ],
+        "createdAt": "2026-10-02T12:48:01.913Z",
+        "reason": "Claude: type chips and kbd keys copy the real app's compact styling in a promo video mock"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "promo/promo.html"
+        ],
+        "createdAt": "2026-10-02T12:48:01.959Z",
+        "reason": "Claude: app cards sit inside a fake browser window frame in a promo video, not real UI nesting"
+      }
+    ]
+  }
+}

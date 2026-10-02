@@ -48,3 +48,10 @@ export function weekToUrlParam(weekStart: string): string {
   const { year, week } = isoWeekOf(weekStart);
   return `${year}-${week}`;
 }
+
+/** What the official system would name an export of `weekStart` made right now, e.g. week40_02102026130256.xlsx. */
+export function exampleExportFileName(weekStart: string, now = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${p(now.getDate())}${p(now.getMonth() + 1)}${now.getFullYear()}${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+  return `week${isoWeekOf(weekStart).week}_${stamp}.xlsx`;
+}

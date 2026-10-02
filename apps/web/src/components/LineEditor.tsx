@@ -1,4 +1,4 @@
-import { type LineDescriptor, joinNumberName, lineKey } from '@mytime/shared';
+import { type LineDescriptor, TEXT_LIMITS, joinNumberName, lineKey } from '@mytime/shared';
 import { type KeyboardEvent, useEffect, useId, useMemo, useState } from 'react';
 import { Search } from './icons';
 import { Button, Dialog, Field, inputClass } from './ui';
@@ -10,6 +10,17 @@ const EMPTY: LineDescriptor = {
   taskName: '',
   type: 'Normal -NO',
 };
+
+/** Copy only the descriptor fields; callers may pass a full `Line` with id and entries. */
+function describe(line: LineDescriptor, map: (v: string) => string = (v) => v): LineDescriptor {
+  return {
+    projectNumber: map(line.projectNumber),
+    projectName: map(line.projectName),
+    taskNumber: map(line.taskNumber),
+    taskName: map(line.taskName),
+    type: map(line.type),
+  };
+}
 
 function distinct(values: string[]) {
   return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nb'));
@@ -40,7 +51,7 @@ export function LineEditor({
 
   useEffect(() => {
     if (open) {
-      setValue(initial ?? EMPTY);
+      setValue(initial ? describe(initial) : EMPTY);
       setQuery('');
       setActive(-1);
     }
@@ -91,9 +102,7 @@ export function LineEditor({
     });
   };
 
-  const trimmed = Object.fromEntries(
-    Object.entries(value).map(([k, v]) => [k, v.trim()]),
-  ) as unknown as LineDescriptor;
+  const trimmed = describe(value, (v) => v.trim());
   const valid = trimmed.projectNumber !== '' || trimmed.projectName !== '';
   const duplicate =
     existingKeys.has(lineKey(trimmed)) && (!initial || lineKey(initial) !== lineKey(trimmed));
@@ -107,7 +116,7 @@ export function LineEditor({
   /** Pick a suggestion: add it straight away, unless the week already has that line. */
   const pick = (s: LineDescriptor) => {
     if (existingKeys.has(lineKey(s)) && (!initial || lineKey(initial) !== lineKey(s))) {
-      setValue(s);
+      setValue(describe(s));
       return;
     }
     onSave(s);
@@ -131,6 +140,7 @@ export function LineEditor({
       <input
         className={inputClass}
         value={value[key]}
+        maxLength={TEXT_LIMITS[key]}
         list={`${ids}-${key}`}
         placeholder={placeholder}
         data-autofocus={autoFocus || undefined}
@@ -215,7 +225,7 @@ export function LineEditor({
                     <button
                       type="button"
                       tabIndex={-1}
-                      onClick={() => setValue(s)}
+                      onClick={() => setValue(describe(s))}
                       onDoubleClick={() => pick(s)}
                       onMouseEnter={() => setActive(i)}
                       className={`block w-full px-3 py-2 text-left text-sm ${

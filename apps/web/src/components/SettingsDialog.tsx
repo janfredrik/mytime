@@ -2,7 +2,14 @@ import { type Settings, parseHours } from '@mytime/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { type ThemePref, useTheme } from '../lib/theme';
 import { Button, Dialog, Field, inputClass } from './ui';
+
+const themeOptions: { value: ThemePref; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'light', label: 'Lys' },
+  { value: 'dark', label: 'Mørk' },
+];
 
 export function SettingsDialog({
   open,
@@ -14,6 +21,7 @@ export function SettingsDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const [theme, setTheme] = useTheme();
   const [norm, setNorm] = useState('');
   const [balance, setBalance] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -81,7 +89,7 @@ export function SettingsDialog({
           <input className={inputClass} inputMode="decimal" value={norm} onChange={(e) => setNorm(e.target.value)} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Fleksbalanse ved start" hint="Kan være negativ.">
+          <Field label="Fleksbalanse ved start">
             <input
               className={inputClass}
               inputMode="decimal"
@@ -89,10 +97,34 @@ export function SettingsDialog({
               onChange={(e) => setBalance(e.target.value)}
             />
           </Field>
-          <Field label="Startdato for fleks" hint="Tom = første uke med timer.">
+          <Field label="Startdato for fleks">
             <input type="date" className={inputClass} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </Field>
         </div>
+        <fieldset>
+          <legend className="mb-1 block text-xs font-medium text-ink-muted">Utseende</legend>
+          <div className="inline-flex rounded-lg border border-line-strong bg-subtle p-0.5">
+            {themeOptions.map((o) => (
+              <label
+                key={o.value}
+                className={`cursor-pointer rounded-md px-3 py-1 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${
+                  theme === o.value ? 'bg-surface font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value={o.value}
+                  checked={theme === o.value}
+                  onChange={() => setTheme(o.value)}
+                  className="sr-only"
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+          <span className="mt-1 block text-xs text-ink-subtle">Auto følger systemet</span>
+        </fieldset>
         {error && <p className="text-sm text-negative">{error}</p>}
         <button type="submit" hidden />
       </form>

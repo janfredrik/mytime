@@ -7,12 +7,23 @@ export const isoDateSchema = z
 
 export const MAX_HOURS_PER_ENTRY = 24;
 
+/** Text limits enforced by the API; the UI caps its fields to the same lengths. */
+export const TEXT_LIMITS = {
+  projectNumber: 100,
+  projectName: 300,
+  taskNumber: 100,
+  taskName: 300,
+  type: 200,
+  comment: 4000,
+  time: 20,
+} as const;
+
 export const entrySchema = z.object({
   date: isoDateSchema,
   hours: z.number().min(0).max(MAX_HOURS_PER_ENTRY),
-  comment: z.string().max(4000).default(''),
-  timeFrom: z.string().max(20).default(''),
-  timeTo: z.string().max(20).default(''),
+  comment: z.string().max(TEXT_LIMITS.comment).default(''),
+  timeFrom: z.string().max(TEXT_LIMITS.time).default(''),
+  timeTo: z.string().max(TEXT_LIMITS.time).default(''),
 });
 export type Entry = z.infer<typeof entrySchema>;
 
@@ -20,11 +31,11 @@ const field = (max: number) => z.string().trim().max(max).default('');
 
 export const lineSchema = z.object({
   id: z.uuid(),
-  projectNumber: field(100),
-  projectName: field(300),
-  taskNumber: field(100),
-  taskName: field(300),
-  type: field(200),
+  projectNumber: field(TEXT_LIMITS.projectNumber),
+  projectName: field(TEXT_LIMITS.projectName),
+  taskNumber: field(TEXT_LIMITS.taskNumber),
+  taskName: field(TEXT_LIMITS.taskName),
+  type: field(TEXT_LIMITS.type),
   entries: z.array(entrySchema).max(7).default([]),
 });
 export type Line = z.infer<typeof lineSchema>;
@@ -74,6 +85,8 @@ export interface Me {
   name: string;
   email: string;
   settings: Settings;
+  /** Has finished or skipped the first-run welcome. */
+  onboarded: boolean;
 }
 
 export interface FlexSummary {
@@ -99,8 +112,17 @@ export interface ImportIssue {
   message: string;
 }
 
+export interface ImportPreviewWeek extends ImportedWeek {
+  totalHours: number;
+  /** What the import would replace in this week. */
+  existingLines: number;
+  existingHours: number;
+  existingStatus: WeekStatus;
+  existingExportedAt: string | null;
+}
+
 export interface ImportPreview {
-  weeks: (ImportedWeek & { existingLines: number; totalHours: number })[];
+  weeks: ImportPreviewWeek[];
   warnings: ImportIssue[];
   errors: ImportIssue[];
 }

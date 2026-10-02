@@ -26,6 +26,8 @@ export const users = pgTable(
       .notNull()
       .default(0),
     flexStartDate: date('flex_start_date', { mode: 'string' }),
+    /** When the user finished or skipped the first-run welcome; null shows it on next sign-in. */
+    onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }).notNull().defaultNow(),
   },

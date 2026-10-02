@@ -1,0 +1,31 @@
+{
+  "name": "mytime",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @mytime/server & npm run dev -w @mytime/web",
+    "build": "npm run build -w @mytime/web && npm run build -w @mytime/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:generate": "npm run db:generate -w @mytime/server"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.56",
+    "eslint": "^10.11.0",
+    "globals": "^17.13.0",
+    "typescript": "5.9",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

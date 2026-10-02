@@ -8,6 +8,9 @@ async function login(page: import('@playwright/test').Page, week: string) {
   const user = `e2e${Date.now()}${Math.floor(Math.random() * 1000)}`;
   await page.goto(`/auth/login?user=${user}&returnTo=${encodeURIComponent(`/?uke=${week}`)}`);
   await expect(page.getByRole('heading', { name: /^Uke / })).toBeVisible();
+  // Every test signs in as a new user, so the first-run welcome covers the timesheet.
+  await page.getByRole('button', { name: 'Hopp over' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
 }
 
 test('shows the login screen when not signed in', async ({ page }) => {

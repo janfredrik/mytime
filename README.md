@@ -159,6 +159,11 @@ Kan legges inn som en cron-jobb på verten.
 
 `GET /healthz` svarer `{"ok":true}` når appen og databasen er oppe (brukes av Docker `HEALTHCHECK`).
 
+## Drift i Azure
+
+Se [`infra/README.md`](infra/README.md) for Bicep-mal med Azure Container Apps og PostgreSQL
+Flexible Server.
+
 ## Kjøre lokalt med Docker
 
 Uten Node, Postgres eller Entra – kun Docker:

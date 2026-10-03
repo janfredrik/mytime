@@ -1,10 +1,10 @@
 # MyTime
 
-Timeføring for jobb: før timer per uke på prosjekt/oppgave/type, se fleksitid, og importer/eksporter
-Excel-filer i samme format som dagens løsning. Innlogging med Microsoft Entra ID.
+Timeføring for fakturering: før timer per uke på prosjekt/oppgave/type, se fleksitid, og importer/eksporter
+filer i samme format som dagens løsning. Innlogging med Microsoft Entra ID.
 
-- Ukevisning med autolagring, tastaturnavigasjon (piltaster/Enter) og kommentar per celle (Shift+Enter)
-- Fleks per dag og total fleksbalanse (dagsnorm 8 t, helg og norske helligdager har norm 0)
+- Ukevisning med autolagring, tastaturnavigasjon og kommentar per celle
+- Fleks per dag og total fleksbalanse
 - «Kopier fra forrige uke» kopierer linjene uten timer
 - Import/eksport av `.xlsx` (ark `Timecard`, kolonner `Project number … Time to`). Eksporten er identisk
   med dagens format, filnavn `week40_02102026130256.xlsx`
@@ -28,9 +28,9 @@ automatisk ved oppstart.
 1. **Entra admin center → App registrations → New registration**
    - Navn: `MyTime`
    - Supported account types: *Accounts in this organizational directory only* (single tenant)
-   - Redirect URI: plattform **Web**, `https://mytime.x99.no/auth/callback`
+   - Redirect URI: plattform **Web**, f.eks: `https://mytime.domene.no/auth/callback`
 2. **Authentication**
-   - Legg til en ekstra redirect-URI `https://mytime.x99.no/` (brukes etter utlogging)
+   - Legg til en ekstra redirect-URI `https://mytime.domene.no/` (brukes etter utlogging)
    - Front-channel logout URL kan stå tom
    - La *ID tokens* / *Access tokens* (implicit flow) være **av**
 3. **Certificates & secrets → New client secret** – kopier *Value* til `ENTRA_CLIENT_SECRET`.
@@ -42,9 +42,9 @@ automatisk ved oppstart.
 6. Valgfritt: for å begrense hvem som får logge inn, gå til **Enterprise applications → MyTime →
    Properties**, sett *Assignment required* = Yes og legg til brukere/grupper under *Users and groups*.
 
-## 2. Drift med Docker Compose
+## 2. Docker Compose
 
-Krever en maskin med Docker og Docker Compose v2. Appen og PostgreSQL kjører som to containere; TLS
+Krever Docker og Docker Compose v2. Appen og PostgreSQL kjører som to containere; TLS
 håndteres av en reverse proxy foran.
 
 ### Med repoet
@@ -100,7 +100,7 @@ services:
 `.env`
 
 ```ini
-PUBLIC_URL=https://mytime.x99.no
+PUBLIC_URL=https://mytime.domene.no
 
 ENTRA_TENANT_ID=<directory (tenant) id>
 ENTRA_CLIENT_ID=<application (client) id>
@@ -140,20 +140,10 @@ repoet). Databasemigrasjoner kjøres automatisk ved oppstart.
 
 ### Reverse proxy
 
-TLS termineres i eksisterende reverse proxy. Pek `mytime.x99.no` til `http://<docker-vert>:3135`.
+TLS termineres i eksisterende reverse proxy. Pek `mytime.domene.no` til `http://<docker-vert>:3135`.
 Proxyen må sende `X-Forwarded-For`/`X-Forwarded-Proto` (standard i Nginx Proxy Manager, SWAG,
-Caddy og Traefik). `PUBLIC_URL` må være nøyaktig `https://mytime.x99.no`, ellers stemmer ikke
+Caddy og Traefik). `PUBLIC_URL` må være nøyaktig `https://mytime.domene.no`, ellers stemmer ikke
 redirect-URI-en og cookies blir ikke merket `Secure`.
-
-### Backup
-
-```bash
-docker exec mytime-db pg_dump -U mytime mytime | gzip > mytime-$(date +%F).sql.gz
-# gjenoppretting:
-gunzip -c mytime-2026-10-02.sql.gz | docker exec -i mytime-db psql -U mytime mytime
-```
-
-Kan legges inn som en cron-jobb på verten.
 
 ### Helsesjekk
 
@@ -193,7 +183,7 @@ Med `DEV_AUTH_BYPASS=true` logger `/auth/login?user=navn` inn en lokal testbruke
 | `npm run build && E2E_DATABASE_URL=… npm run test:e2e` | Ende-til-ende-tester i Chromium (Playwright) |
 | `npm run db:generate` | Lag ny migrasjon etter endring i `apps/server/src/db/schema.ts` |
 
-### Excel-format
+### xlsx-format
 
 Ett ark `Timecard` med kolonnene `Project number, Project name, Task number, Task name, Type, Date,
 Hours, Comment, Time from, Time to`. Én rad per linje og dag med timer; linjer uten timer i uka

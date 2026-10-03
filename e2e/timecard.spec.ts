@@ -51,6 +51,32 @@ test('add a line, register hours with the keyboard and add a comment', async ({ 
   await expect(page.locator('[data-cell="0:0"]')).toHaveAttribute('title', 'Planlegging\nMøte');
 });
 
+test('the comment button right after typing hours keeps them and opens on the comment', async ({ page }) => {
+  await login(page, '2026-40');
+  await page.getByRole('button', { name: 'Legg til linje' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Prosjektnummer').fill('266411');
+  await dialog.getByLabel('Prosjektnavn').fill('Internt');
+  await dialog.getByRole('button', { name: 'Legg til' }).click();
+
+  // Type hours and click the comment button without leaving the cell first.
+  const cell = page.locator('[data-cell="0:2"]');
+  await cell.click();
+  await cell.fill('6');
+  await page.getByRole('button', { name: /^Kommentar og detaljer/ }).nth(2).click();
+
+  const popover = page.getByRole('dialog', { name: /Detaljer/ });
+  await expect(popover.getByLabel('Kommentar')).toBeFocused();
+  await expect(popover.getByLabel('Timer')).toHaveValue('6');
+  await page.keyboard.type('Sprintplanlegging');
+  await popover.getByRole('button', { name: 'Lagre' }).click();
+  await expect(page.getByText('Lagret')).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('[data-cell="0:2"]')).toHaveValue('6');
+  await expect(page.locator('[data-cell="0:2"]')).toHaveAttribute('title', 'Sprintplanlegging');
+});
+
 test('import, export, copy to next week and flag edits after export', async ({ page }) => {
   await login(page, '2026-40');
   await page.getByRole('button', { name: 'Importer' }).first().click();

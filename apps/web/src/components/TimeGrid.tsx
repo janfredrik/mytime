@@ -251,7 +251,10 @@ const HourCell = memo(function HourCell({
         aria-label={`Kommentar og detaljer, ${label}`}
         title={hasComment ? entry?.comment || 'Detaljer' : 'Legg til kommentar'}
         onMouseDown={(e) => e.preventDefault()}
-        onClick={(e) => onDetails(row, col, e.currentTarget.parentElement!.querySelector('input')!)}
+        onClick={(e) => {
+          // The cell keeps focus (see onMouseDown), so hours typed just now are not saved yet.
+          if (commit()) onDetails(row, col, e.currentTarget.parentElement!.querySelector('input')!);
+        }}
         className={`absolute top-1/2 right-1 -translate-y-1/2 rounded p-0.5 transition-opacity ${
           hasComment
             ? 'text-accent opacity-100'

@@ -11,6 +11,7 @@ import {
   round2,
 } from '@mytime/shared';
 import { type CSSProperties, type DragEvent, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useDensity } from '../lib/density';
 import { dayName, shortDate, signedHours } from '../lib/format';
 import { emptyEntry, entryFor, moveItem, setEntry } from '../lib/lines';
 import { useCelebrate } from '../lib/useCelebrate';
@@ -81,6 +82,7 @@ function focusCell(row: number, col: number) {
 
 interface HourCellProps {
   entry: Entry | undefined;
+  comfortable: boolean;
   row: number;
   col: number;
   rowCount: number;
@@ -91,6 +93,7 @@ interface HourCellProps {
 
 const HourCell = memo(function HourCell({
   entry,
+  comfortable,
   row,
   col,
   rowCount,
@@ -187,7 +190,7 @@ const HourCell = memo(function HourCell({
             requestAnimationFrame(() => input.select());
           }
         }}
-        className={`tabular h-8 w-full rounded-md border bg-transparent pr-6 pl-1.5 text-right text-sm transition-colors outline-none hover:border-line-strong focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent/25 ${
+        className={`tabular ${comfortable ? 'h-9' : 'h-8'} w-full rounded-md border bg-transparent pr-6 pl-1.5 text-right text-sm transition-colors outline-none hover:border-line-strong focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent/25 ${
           invalid ? 'border-negative bg-negative-soft focus:border-negative focus:ring-negative/25' : 'border-transparent'
         } ${display ? 'font-medium text-ink' : 'text-ink-muted'}`}
       />
@@ -244,7 +247,11 @@ export function TimeGrid({
   const layout = useLabelLayout();
   const wide = layout === 'wide';
   const narrow = layout === 'narrow';
-  const labelCols = wide ? 3 : narrow ? 1 : 2;
+  const [density] = useDensity();
+  const comfortable = density === 'comfortable';
+  /** One label column: always on phones, and in the comfortable density with project above task. */
+  const stacked = narrow || comfortable;
+  const labelCols = stacked ? 1 : wide ? 3 : 2;
   /** Fills the label columns after the sticky first one in the add and footer rows. */
   const labelRest = labelCols > 1 ? <td colSpan={labelCols - 1} /> : null;
   const [dragId, setDragId] = useState<string | null>(null);
@@ -325,14 +332,14 @@ export function TimeGrid({
               scope="col"
               className={`sticky left-0 z-10 bg-surface py-2.5 pr-2 pl-8 text-left font-medium ${narrow ? 'w-[160px]' : ''}`}
             >
-              {narrow ? 'Prosjekt / oppgave' : 'Prosjekt'}
+              {comfortable && !narrow ? 'Prosjekt / oppgave / type' : stacked ? 'Prosjekt / oppgave' : 'Prosjekt'}
             </th>
-            {!narrow && (
+            {!stacked && (
               <th scope="col" className={`${wide ? '' : 'w-[150px]'} px-2 py-2.5 text-left font-medium`}>
                 Oppgave
               </th>
             )}
-            {wide && (
+            {wide && !stacked && (
               <th scope="col" className="w-[120px] px-2 py-2.5 text-left font-medium">
                 Type
               </th>
@@ -414,7 +421,7 @@ export function TimeGrid({
                           document.querySelector<HTMLElement>(`[data-handle="${line.id}"]`)?.focus(),
                         );
                       }}
-                      className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing [@media(hover:none)]:opacity-100"
+                      className={`flex ${comfortable ? 'h-9' : 'h-8'} w-6 shrink-0 cursor-grab items-center justify-center rounded text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing [@media(hover:none)]:opacity-100`}
                     >
                       <Grip size={14} />
                     </button>
@@ -422,29 +429,52 @@ export function TimeGrid({
                       type="button"
                       onClick={() => onEditLine(line)}
                       className={`min-w-0 flex-1 rounded-md px-2 py-1 text-left hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent ${
-                        narrow ? 'block' : 'flex items-baseline gap-2'
+                        stacked ? 'block' : 'flex items-baseline gap-2'
                       }`}
                       title={`Rediger linje: ${joinNumberName(line.projectNumber, line.projectName)}`}
                     >
-                      <span className={`truncate font-medium ${narrow ? 'block' : ''}`}>
-                        {line.projectName || line.projectNumber || 'Uten prosjekt'}
-                      </span>
-                      {wide && line.projectName && line.projectNumber && (
-                        <span className="tabular shrink-0 text-xs text-ink-subtle">{line.projectNumber}</span>
-                      )}
-                      {narrow && (
-                        <span className="block truncate text-xs text-ink-muted">
-                          {joinNumberName(line.taskNumber, line.taskName) || '–'}
-                          {line.type && !isDefaultType(line.type) && (
-                            <span className="text-ink-subtle"> · {line.type}</span>
+                      {comfortable && !narrow ? (
+                        <>
+                          <span className="flex items-baseline gap-2">
+                            <span className="truncate font-medium">
+                              {line.projectName || line.projectNumber || 'Uten prosjekt'}
+                            </span>
+                            {line.projectName && line.projectNumber && (
+                              <span className="tabular shrink-0 text-xs text-ink-subtle">{line.projectNumber}</span>
+                            )}
+                          </span>
+                          <span className="flex items-center gap-1.5 text-xs text-ink-muted">
+                            <span className="truncate">{joinNumberName(line.taskNumber, line.taskName) || '–'}</span>
+                            {line.type && (
+                              <span className="shrink-0 rounded bg-subtle px-1.5 py-px text-[11px] font-medium text-ink-subtle ring-1 ring-line ring-inset">
+                                {line.type}
+                              </span>
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className={`truncate font-medium ${narrow ? 'block' : ''}`}>
+                            {line.projectName || line.projectNumber || 'Uten prosjekt'}
+                          </span>
+                          {wide && line.projectName && line.projectNumber && (
+                            <span className="tabular shrink-0 text-xs text-ink-subtle">{line.projectNumber}</span>
                           )}
-                        </span>
+                          {narrow && (
+                            <span className="block truncate text-xs text-ink-muted">
+                              {joinNumberName(line.taskNumber, line.taskName) || '–'}
+                              {line.type && !isDefaultType(line.type) && (
+                                <span className="text-ink-subtle"> · {line.type}</span>
+                              )}
+                            </span>
+                          )}
+                        </>
                       )}
                     </button>
                   </div>
                 </td>
                 {/* Task and type open the editor too; the project button is the keyboard entry point. */}
-                {!narrow && (
+                {!stacked && (
                   <td
                     className="cursor-pointer px-2 py-1 text-ink-muted"
                     onClick={() => onEditLine(line)}
@@ -458,7 +488,7 @@ export function TimeGrid({
                     </div>
                   </td>
                 )}
-                {wide && (
+                {wide && !stacked && (
                   <td className="cursor-pointer px-2 py-1 text-xs text-ink-subtle" onClick={() => onEditLine(line)}>
                     <div className="truncate">{line.type}</div>
                   </td>
@@ -471,6 +501,7 @@ export function TimeGrid({
                   >
                     <HourCell
                       entry={entryFor(line, d.date)}
+                      comfortable={comfortable}
                       row={row}
                       col={d.index}
                       rowCount={lines.length}

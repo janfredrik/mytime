@@ -2,6 +2,7 @@ import { type Settings, parseHours } from '@mytime/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { type Density, useDensity } from '../lib/density';
 import { type ThemePref, useTheme } from '../lib/theme';
 import { Button, Dialog, Field, inputClass } from './ui';
 
@@ -10,6 +11,47 @@ const themeOptions: { value: ThemePref; label: string }[] = [
   { value: 'light', label: 'Lys' },
   { value: 'dark', label: 'Mørk' },
 ];
+
+const densityOptions: { value: Density; label: string }[] = [
+  { value: 'compact', label: 'Kompakt' },
+  { value: 'comfortable', label: 'Luftig' },
+];
+
+/** Segmented radio group; the choice applies at once, like the theme. */
+function Segmented<T extends string>({
+  name,
+  options,
+  value,
+  onChange,
+}: {
+  name: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-line-strong bg-subtle p-0.5">
+      {options.map((o) => (
+        <label
+          key={o.value}
+          className={`cursor-pointer rounded-md px-3 py-1 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${
+            value === o.value ? 'bg-surface font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+          }`}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={o.value}
+            checked={value === o.value}
+            onChange={() => onChange(o.value)}
+            className="sr-only"
+          />
+          {o.label}
+        </label>
+      ))}
+    </div>
+  );
+}
 
 export function SettingsDialog({
   open,
@@ -22,6 +64,7 @@ export function SettingsDialog({
 }) {
   const qc = useQueryClient();
   const [theme, setTheme] = useTheme();
+  const [density, setDensity] = useDensity();
   const [norm, setNorm] = useState('');
   const [balance, setBalance] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -103,27 +146,15 @@ export function SettingsDialog({
         </div>
         <fieldset>
           <legend className="mb-1 block text-xs font-medium text-ink-muted">Utseende</legend>
-          <div className="inline-flex rounded-lg border border-line-strong bg-subtle p-0.5">
-            {themeOptions.map((o) => (
-              <label
-                key={o.value}
-                className={`cursor-pointer rounded-md px-3 py-1 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${
-                  theme === o.value ? 'bg-surface font-medium text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="theme"
-                  value={o.value}
-                  checked={theme === o.value}
-                  onChange={() => setTheme(o.value)}
-                  className="sr-only"
-                />
-                {o.label}
-              </label>
-            ))}
-          </div>
+          <Segmented name="theme" options={themeOptions} value={theme} onChange={setTheme} />
           <span className="mt-1 block text-xs text-ink-subtle">Auto følger systemet</span>
+        </fieldset>
+        <fieldset>
+          <legend className="mb-1 block text-xs font-medium text-ink-muted">Radvisning</legend>
+          <Segmented name="density" options={densityOptions} value={density} onChange={setDensity} />
+          <span className="mt-1 block text-xs text-ink-subtle">
+            Kompakt viser prosjekt, oppgave og type på én linje. Luftig viser oppgaven under prosjektet.
+          </span>
         </fieldset>
         {error && <p className="text-sm text-negative">{error}</p>}
         <button type="submit" hidden />

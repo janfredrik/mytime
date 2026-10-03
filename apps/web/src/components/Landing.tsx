@@ -9,9 +9,9 @@ import { Spinner } from './ui';
    keystroke, the way the app is meant to be used, and every day stamps itself full at 8 hours. */
 
 const ROWS = [
-  { task: 'Utvikling', project: 'Kundeprosjekt', hours: [6, 5.5, 6, 4.5, 5] },
-  { task: 'Møter', project: 'Kundeprosjekt', hours: [1.5, 2, 1, 1.5, 1] },
-  { task: 'Kompetanse', project: 'Interntid', hours: [0.5, 0.5, 1, 2, 2] },
+  { task: 'Fravær', project: 'Lunsj', hours: [0.5, 0.5, 0.5, 0.5, 0.5] },
+  { task: 'Mjøsa 110', project: '12.02 Senior - Klient', hours: [1.5, 2, 1, 1.5, 5.5] },
+  { task: 'GreenSouth', project: '1.1 Konsulent - Seniorkonsulent', hours: [6, 5.5, 6.5, 6, 2] },
 ];
 
 type Cell = { r: number; c: number };

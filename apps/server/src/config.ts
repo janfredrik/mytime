@@ -17,6 +17,16 @@ const envSchema = z.object({
   ENTRA_TENANT_ID: z.string().default(''),
   ENTRA_CLIENT_ID: z.string().default(''),
   ENTRA_CLIENT_SECRET: z.string().default(''),
+  /** Comma-separated email domains that may invite themselves as guests. Empty turns it off. */
+  GUEST_INVITE_DOMAINS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
+        .filter(Boolean),
+    ),
   DEV_AUTH_BYPASS: bool,
   WEB_DIST: z.string().optional(),
 });

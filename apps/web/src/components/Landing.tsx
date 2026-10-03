@@ -1,7 +1,8 @@
 import { formatHours, holidayName, isoWeekOf, todayISO, weekDates, weekStartOf } from '@mytime/shared';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { ApiError, api } from '../lib/api';
 import { dayName, shortDate } from '../lib/format';
-import { Check, Clock } from './icons';
+import { Alert, Check, Clock } from './icons';
 import { Spinner } from './ui';
 
 /* The logged-out front page. Its one moment: this week's timesheet fills itself in, keystroke by
@@ -108,13 +109,12 @@ function MicrosoftLogo() {
   );
 }
 
-function SignInButton() {
+function SignInButton({ ref, ready }: { ref: RefObject<HTMLAnchorElement | null>; ready: boolean }) {
   const [leaving, setLeaving] = useState(false);
-  const ref = useRef<HTMLAnchorElement>(null);
   const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
 
   // The only action on the page, so Enter signs in. React's autoFocus doesn't apply to links.
-  useEffect(() => ref.current?.focus(), []);
+  useEffect(() => ref.current?.focus(), [ref]);
 
   useEffect(() => {
     // Coming back with the browser's back button restores the page from cache; reset the state.
@@ -129,7 +129,7 @@ function SignInButton() {
       ref={ref}
       onClick={() => setLeaving(true)}
       aria-busy={leaving}
-      className="ms-signin inline-flex h-12 items-center gap-3 rounded-[3px] px-4 text-[15px] font-semibold transition-[box-shadow,background-color] duration-200"
+      className={`ms-signin ${ready ? 'ms-signin-ready' : ''} inline-flex h-12 items-center gap-3 rounded-[3px] px-4 text-[15px] font-semibold transition-[box-shadow,background-color] duration-200`}
     >
       {leaving ? <Spinner className="h-[21px] w-[21px]" /> : <MicrosoftLogo />}
       {leaving ? 'Sender deg til Microsoft …' : 'Logg inn med Microsoft'}
@@ -279,7 +279,215 @@ function Timesheet() {
   );
 }
 
+type InviteState =
+  | { step: 'idle' }
+  | { step: 'sending'; slow: boolean }
+  | { step: 'error'; message: string }
+  | { step: 'done'; status: 'ready' | 'invited' | 'pending' };
+
+const DONE_COPY = {
+  invited: {
+    title: 'Du er lagt til som gjest',
+    body: 'Logg inn med Microsoft-knappen over. Første gang ber Microsoft deg godta invitasjonen.',
+  },
+  ready: {
+    title: 'Kontoen din har allerede tilgang',
+    body: 'Logg inn med knappen over, og velg jobbkontoen din når Microsoft spør.',
+  },
+  pending: {
+    title: 'Invitasjonen er sendt',
+    body: 'Det kan ta et minutt før kontoen er klar. Vent litt, og logg inn med knappen over.',
+  },
+};
+
+/* Where each spark flies: angle in degrees, distance in px. Uneven on purpose, like ink off a stamp. */
+const SPARKS = [
+  [-8, 33], [24, 27], [52, 35], [83, 26], [112, 34], [141, 28],
+  [170, 36], [203, 27], [232, 33], [262, 26], [291, 35], [322, 29],
+] as const;
+
+/** The check that stamps itself in: the disc lands, the tick draws, and a ring of sparks bursts out. */
+function StampMark() {
+  return (
+    <span className="stamp-mark relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+      {SPARKS.map(([angle, dist], i) => (
+        <span
+          key={angle}
+          className="stamp-spark"
+          style={{ '--a': `${angle}deg`, '--d': `${dist}px`, '--i': i } as React.CSSProperties}
+        />
+      ))}
+      <span className="stamp-disc absolute inset-0 rounded-full bg-positive-soft" />
+      <svg viewBox="0 0 24 24" width="17" height="17" className="relative text-positive">
+        <path
+          className="stamp-tick"
+          d="M5 12.5l4.5 4.5L19 7.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pathLength={1}
+        />
+      </svg>
+    </span>
+  );
+}
+
+/** For people outside the tenant: add themselves as a guest from an approved domain, then sign in. */
+function GuestAccess({ onReady }: { onReady: () => void }) {
+  const [open, setOpen] = useState(() => window.location.hash === '#tilgang');
+  // Clipping is only needed while the panel unfolds; afterwards the stamp's sparks may fly past its edge.
+  const [settled, setSettled] = useState(open);
+  const [email, setEmail] = useState('');
+  const [state, setState] = useState<InviteState>({ step: 'idle' });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const busy = state.step === 'sending';
+
+  useEffect(() => {
+    if (open && state.step === 'idle') inputRef.current?.focus({ preventScroll: true });
+  }, [open, state.step]);
+
+  useEffect(() => {
+    if (!busy) return;
+    // The server waits for the new account to appear in the directory; say so once it takes a while.
+    const t = window.setTimeout(() => setState({ step: 'sending', slow: true }), 2200);
+    return () => window.clearTimeout(t);
+  }, [busy]);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setState({ step: 'sending', slow: false });
+    try {
+      const { status } = await api.invite(email);
+      setState({ step: 'done', status });
+      onReady();
+    } catch (err) {
+      setState({
+        step: 'error',
+        message: err instanceof ApiError ? err.message : 'Noe gikk galt. Prøv igjen',
+      });
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  };
+
+  return (
+    <div className="mt-4">
+      <p className="text-sm text-ink-subtle">
+        Bruk jobbkontoen din.{' '}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="guest-access"
+          onClick={() => {
+            setSettled(false);
+            setOpen((o) => !o);
+          }}
+          className="guest-toggle font-medium text-ink-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink hover:decoration-accent"
+        >
+          Får du ikke logget inn?
+        </button>
+      </p>
+
+      <div
+        id="guest-access"
+        className="guest-reveal"
+        data-open={open}
+        data-settled={settled}
+        inert={!open}
+        onTransitionEnd={(e) => e.propertyName === 'grid-template-rows' && setSettled(open)}
+      >
+        <div className="min-h-0">
+          <div className="guest-panel mt-5 max-w-[25rem] border-t border-line pt-5">
+            {state.step === 'done' ? (
+              <div role="status" className="flex gap-3.5">
+                {state.status === 'pending' ? (
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning">
+                    <Clock size={16} strokeWidth={2.2} />
+                  </span>
+                ) : (
+                  <StampMark />
+                )}
+                <div className="guest-done">
+                  <p className="font-semibold">{DONE_COPY[state.status].title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-ink-muted">{DONE_COPY[state.status].body}</p>
+                  <p className="mt-2 text-xs text-ink-subtle">{email}</p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={submit} noValidate>
+                <p className="text-sm leading-relaxed text-ink-muted">
+                  Skriv inn jobbadressen din, så legger vi deg til som gjest.
+                </p>
+                <label htmlFor="guest-email" className="mt-4 mb-1.5 block text-xs font-medium text-ink-muted">
+                  Jobbadresse
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    ref={inputRef}
+                    id="guest-email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    spellCheck={false}
+                    required
+                    value={email}
+                    readOnly={busy}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (state.step === 'error') setState({ step: 'idle' });
+                    }}
+                    placeholder="navn@firma.no"
+                    aria-invalid={state.step === 'error'}
+                    aria-describedby="guest-hint"
+                    className="h-11 w-full min-w-0 rounded-lg sm:flex-1 border border-line-strong bg-surface px-3 text-[15px] text-ink placeholder:text-ink-subtle focus:border-accent focus:ring-2 focus:ring-accent/25 focus:outline-none aria-invalid:border-negative aria-invalid:focus:border-negative aria-invalid:focus:ring-negative/25 read-only:text-ink-muted"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!email.trim()}
+                    aria-busy={busy}
+                    className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 aria-busy:pointer-events-none"
+                  >
+                    {busy && <Spinner className="h-3.5 w-3.5" />}
+                    {busy ? 'Legger til …' : 'Gi meg tilgang'}
+                  </button>
+                </div>
+                <p id="guest-hint" aria-live="polite" className="mt-2 min-h-[1.25rem] text-xs leading-5">
+                  {state.step === 'error' ? (
+                    <span className="inline-flex items-start gap-1.5 text-negative">
+                      <Alert size={13} className="mt-[3px] shrink-0" />
+                      {state.message}
+                    </span>
+                  ) : (
+                    busy && (
+                      <span className="text-ink-muted">
+                        {state.slow ? 'Venter på at kontoen blir klar. Det tar noen sekunder …' : 'Legger deg til som gjest …'}
+                      </span>
+                    )
+                  )}
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Landing() {
+  const signIn = useRef<HTMLAnchorElement>(null);
+  const [ready, setReady] = useState(false);
+  const [guestAccess, setGuestAccess] = useState(false);
+
+  useEffect(() => {
+    api.inviteEnabled().then(
+      (r) => setGuestAccess(r.enabled),
+      () => setGuestAccess(false),
+    );
+  }, []);
+
   return (
     <div className="landing relative flex min-h-dvh flex-col overflow-hidden">
       <header className="mx-auto flex w-full max-w-[1280px] items-center px-6 pt-6 sm:px-10">
@@ -300,9 +508,18 @@ export function Landing() {
             Importer, før timene, følg fleksen og eksporter rett til timesystemet. Lagres mens du skriver.
           </p>
           <div className="mt-9">
-            <SignInButton />
+            <SignInButton ref={signIn} ready={ready} />
           </div>
-          <p className="mt-4 text-sm text-ink-subtle">Bruk jobbkontoen din</p>
+          {guestAccess ? (
+            <GuestAccess
+              onReady={() => {
+                setReady(true);
+                signIn.current?.focus({ preventScroll: true });
+              }}
+            />
+          ) : (
+            <p className="mt-4 text-sm text-ink-subtle">Bruk jobbkontoen din</p>
+          )}
         </section>
 
         <div aria-hidden="true" className="landing-stage min-w-0">

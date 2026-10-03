@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerAuth } from './auth/plugin.js';
+import { type GuestInviter, createGraphInviter, fakeInviter, registerInvite } from './auth/invite.js';
 import { type OidcProvider, createEntraProvider } from './auth/oidc.js';
 import type { Config } from './config.js';
 import type { Db } from './db/client.js';
@@ -18,6 +19,7 @@ export interface AppOptions {
   config: Config;
   db: Db;
   provider?: OidcProvider | null;
+  inviter?: GuestInviter | null;
   today?: () => string;
   logger?: boolean;
 }
@@ -87,6 +89,13 @@ export async function buildApp(opts: AppOptions) {
         ? null
         : createEntraProvider(config);
   const requireUser = await registerAuth(app, { db, config, provider });
+  const inviter =
+    opts.inviter !== undefined
+      ? opts.inviter
+      : config.DEV_AUTH_BYPASS
+        ? fakeInviter
+        : createGraphInviter(config);
+  await registerInvite(app, { config, inviter });
   await registerApi(app, { db, requireUser, today: opts.today });
 
   const webDist = findWebDist(config.WEB_DIST);

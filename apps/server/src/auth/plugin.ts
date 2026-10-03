@@ -35,10 +35,12 @@ export function safeReturnTo(value: unknown): string {
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function errorPage(message: string) {
+function errorPage(message: string, guestAccess = false) {
   return `<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Innlogging feilet</title>
 <style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1rem;color:#1e293b}a{color:#0f766e}</style></head>
-<body><h1>Innlogging feilet</h1><p>${escapeHtml(message)}</p><p><a href="/auth/login">Prøv igjen</a></p></body></html>`;
+<body><h1>Innlogging feilet</h1><p>${escapeHtml(message)}</p><p><a href="/auth/login">Prøv igjen</a></p>${
+    guestAccess ? '<p>Er du ikke ansatt i organisasjonen? <a href="/#tilgang">Be om gjestetilgang</a></p>' : ''
+  }</body></html>`;
 }
 
 export async function registerAuth(
@@ -47,6 +49,7 @@ export async function registerAuth(
 ) {
   const { db, config, provider } = deps;
   const ttlMs = config.SESSION_TTL_DAYS * 86_400_000;
+  const guestAccess = config.GUEST_INVITE_DOMAINS.length > 0;
   const cookieBase = {
     httpOnly: true,
     secure: config.secureCookies,
@@ -142,7 +145,7 @@ export async function registerAuth(
 
     if (query.error) {
       req.log.warn({ error: query.error, description: query.error_description }, 'OIDC error');
-      return reply.code(400).send(errorPage(query.error_description ?? query.error));
+      return reply.code(400).send(errorPage(query.error_description ?? query.error, guestAccess));
     }
     if (!provider || !token) {
       return reply.code(400).send(errorPage('Innloggingsforsøket er utløpt. Prøv på nytt.'));
@@ -171,7 +174,7 @@ export async function registerAuth(
     const tid = typeof claims.tid === 'string' ? claims.tid : '';
     const oid = typeof claims.oid === 'string' ? claims.oid : '';
     if (!oid || tid.toLowerCase() !== config.ENTRA_TENANT_ID.toLowerCase()) {
-      return reply.code(403).send(errorPage('Brukeren tilhører ikke en tillatt organisasjon.'));
+      return reply.code(403).send(errorPage('Brukeren tilhører ikke en tillatt organisasjon.', guestAccess));
     }
     const email =
       (typeof claims.email === 'string' && claims.email) ||

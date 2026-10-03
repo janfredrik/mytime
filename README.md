@@ -41,6 +41,20 @@ automatisk ved oppstart.
    til `ENTRA_CLIENT_ID`.
 6. Valgfritt: for å begrense hvem som får logge inn, gå til **Enterprise applications → MyTime →
    Properties**, sett *Assignment required* = Yes og legg til brukere/grupper under *Users and groups*.
+7. Valgfritt, **gjestetilgang**: folk fra godkjente domener som ikke finnes i tenanten kan legge seg til
+   som gjest selv, via «Får du ikke logget inn?» under innloggingsknappen. MyTime sjekker om adressen
+   finnes fra før, inviterer den ellers som B2B-gjest (uten e-post fra Microsoft), venter til kontoen er
+   synlig og ber personen logge inn som vanlig. Invitasjonen godtas ved første innlogging.
+   - **API permissions → Add a permission → Microsoft Graph → Application permissions**:
+     `User.Invite.All` og `User.Read.All`, og trykk **Grant admin consent**. Dette er
+     applikasjonstilganger (ikke delegerte), og de brukes med den samme client secret-en.
+   - Sett `GUEST_INVITE_DOMAINS=partner.no,annet.no` i `.env`. Tom eller manglende verdi skjuler valget.
+   - **External Identities → External collaboration settings** må tillate invitasjoner til disse
+     domenene (sjekk eventuell allow/deny-liste).
+   - Med *Assignment required* = Yes slipper ikke nye gjester inn før de er lagt til under *Users and
+     groups*. Bruk f.eks. en dynamisk gruppe for gjester (`user.userType -eq "Guest"`).
+   - Endepunktet er åpent for alle, men begrenset til 5 forsøk per IP per 10 minutter. Bare den som
+     eier adressen kan godta invitasjonen.
 
 ## 2. Docker Compose
 
@@ -125,6 +139,7 @@ Start med `docker compose up -d` og følg med på oppstarten med `docker compose
 | --- | --- |
 | `PUBLIC_URL` | Offentlig adresse, nøyaktig slik den står i redirect-URI-en |
 | `ENTRA_*` | Fra app registration (se over) |
+| `GUEST_INVITE_DOMAINS` | Valgfritt. Kommaseparerte domener som kan legge seg til som gjest (se punkt 7 over) |
 | `SESSION_SECRET` | `openssl rand -hex 32` |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` – kun bokstaver og tall, siden det settes inn i en database-URL |
 | `APP_PORT` | Port på verten appen lytter på (standard `3135`) |

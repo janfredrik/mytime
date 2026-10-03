@@ -239,6 +239,151 @@ input[type='date']::-webkit-calendar-picker-indicator {
   color: #5e5e5e;
 }
 
+/* Guest access: the panel unfolds under the sign-in button, and once the account is ready the button
+   draws attention back to itself with a single ring that spreads out and fades. */
+.guest-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.guest-reveal[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.guest-reveal > div {
+  overflow: hidden;
+}
+
+.guest-reveal[data-settled='true'] > div {
+  overflow: visible;
+}
+
+.guest-done {
+  animation: guest-done-in 520ms cubic-bezier(0.16, 1, 0.3, 1) 140ms both;
+}
+
+/* The stamp: the disc drops in a little too big and settles with a thud, leaving a halo behind,
+   then the tick draws itself and twelve sparks fly out from under it. Roughly 900 ms in all. */
+.stamp-disc {
+  animation: stamp-land 460ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+@keyframes stamp-land {
+  0% {
+    opacity: 0;
+    transform: scale(1.9) rotate(-14deg);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-positive) 0%, transparent);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(0.9) rotate(3deg);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-positive) 45%, transparent);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--color-positive) 0%, transparent);
+  }
+}
+
+.stamp-tick {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: stamp-tick 360ms cubic-bezier(0.65, 0, 0.35, 1) 240ms forwards;
+}
+
+@keyframes stamp-tick {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.stamp-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 9px;
+  margin: -4.5px 0 0 -1.5px;
+  border-radius: 2px;
+  background: var(--color-positive);
+  opacity: 0;
+  transform: rotate(var(--a)) translateY(-12px);
+  animation: stamp-spark 620ms cubic-bezier(0.16, 1, 0.3, 1) calc(200ms + var(--i) * 8ms) both;
+}
+
+.stamp-spark:nth-child(3n + 2) {
+  background: var(--color-accent);
+}
+
+.stamp-spark:nth-child(4n) {
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 999px;
+  background: var(--color-warning);
+}
+
+@keyframes stamp-spark {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-11px) scaleY(0.4);
+  }
+  20% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(calc(var(--d) * -0.55)) scaleY(1.25);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scaleY(0.3);
+  }
+}
+
+@keyframes guest-done-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+  }
+}
+
+.ms-signin-ready {
+  /* Waits for the stamp to land before pointing at the next step. */
+  animation: signin-ready 1.6s cubic-bezier(0.16, 1, 0.3, 1) 700ms 2;
+}
+
+@keyframes signin-ready {
+  0% {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+    outline-offset: 0;
+  }
+  100% {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 0%, transparent);
+    outline-offset: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guest-reveal,
+  .guest-done,
+  .stamp-disc,
+  .stamp-tick,
+  .ms-signin-ready {
+    transition: none;
+    animation: none;
+  }
+  .stamp-tick {
+    stroke-dashoffset: 0;
+  }
+  .stamp-spark {
+    display: none;
+  }
+}
+
 [data-theme='dark'] {
   .ms-signin {
     background: #2f2f2f;

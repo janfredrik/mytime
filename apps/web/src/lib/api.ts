@@ -83,6 +83,9 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 
 export const api = {
   me: () => request<Me>('GET', '/api/me'),
+  inviteEnabled: () => request<{ enabled: boolean }>('GET', '/auth/invite'),
+  invite: (email: string) =>
+    request<{ status: 'ready' | 'invited' | 'pending' }>('POST', '/auth/invite', { email }),
   week: (weekStart: string) => request<Week>('GET', `/api/weeks/${weekStart}`),
   saveWeek: (weekStart: string, lines: Line[]) =>
     request<Week>('PUT', `/api/weeks/${weekStart}`, { lines }),

@@ -446,7 +446,7 @@ export function WeekView({
         <div className="rounded-xl border border-dashed border-line-strong bg-surface px-6 py-14 text-center">
           <h2 className="text-base font-semibold">Ingen linjer i uke {week}</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-ink-muted">
-            Legg til en linje for prosjekt og oppgave, kopier linjene fra forrige uke, eller importer en Excel-fil.
+            Legg til en linje for prosjekt og oppgave, kopier linjene fra forrige uke, eller importer en fil fra MyTime.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <Button variant="primary" onClick={() => setEditing({ id: null })}>
@@ -485,10 +485,6 @@ export function WeekView({
             <span>
               <kbd>{ALT}</kbd>+<kbd>N</kbd> ny linje
             </span>
-            <span>
-              <kbd>Page Up</kbd> <kbd>Page Down</kbd> forrige/neste uke
-            </span>
-            <span>Alt lagres automatisk.</span>
           </p>
         </>
       )}

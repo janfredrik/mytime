@@ -294,15 +294,15 @@ export function Landing() {
       <main className="mx-auto grid w-full max-w-[1280px] flex-1 items-center gap-12 px-6 py-12 sm:px-10 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] lg:gap-16">
         <section>
           <h1 className="text-[2.6rem] leading-[1.04] font-semibold tracking-[-0.035em] text-balance sm:text-[3.4rem]">
-            Timene på plass, uten styr.
+            Ikke kast bort verdifulle minutter
           </h1>
           <p className="mt-5 max-w-[34ch] text-lg leading-relaxed text-ink-muted">
-            Før timene, følg fleksen og eksporter rett til timesystemet. Lagres mens du skriver.
+            Importer, før timene, følg fleksen og eksporter rett til timesystemet. Lagres mens du skriver.
           </p>
           <div className="mt-9">
             <SignInButton />
           </div>
-          <p className="mt-4 text-sm text-ink-subtle">Bruk jobbkontoen din.</p>
+          <p className="mt-4 text-sm text-ink-subtle">Bruk jobbkontoen din</p>
         </section>
 
         <div aria-hidden="true" className="landing-stage min-w-0">

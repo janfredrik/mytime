@@ -152,9 +152,6 @@ export function SettingsDialog({
         <fieldset>
           <legend className="mb-1 block text-xs font-medium text-ink-muted">Radvisning</legend>
           <Segmented name="density" options={densityOptions} value={density} onChange={setDensity} />
-          <span className="mt-1 block text-xs text-ink-subtle">
-            Kompakt viser prosjekt, oppgave og type på én linje. Luftig viser oppgaven under prosjektet.
-          </span>
         </fieldset>
         {error && <p className="text-sm text-negative">{error}</p>}
         <button type="submit" hidden />

@@ -1,6 +1,7 @@
 import {
   type Entry,
   type Line,
+  countsTowardsFlex,
   formatHours,
   holidayName,
   isoDayOfWeek,
@@ -320,7 +321,10 @@ export function TimeGrid({
   const totals = days.map((d) =>
     round2(lines.reduce((sum, l) => sum + (entryFor(l, d.date)?.hours ?? 0), 0)),
   );
-  const flex = days.map((d, i) => flexFor(d.date, totals[i]!));
+  const flexLines = lines.filter((l) => countsTowardsFlex(l.projectNumber));
+  const flex = days.map((d) =>
+    flexFor(d.date, round2(flexLines.reduce((sum, l) => sum + (entryFor(l, d.date)?.hours ?? 0), 0))),
+  );
   const weekTotal = round2(totals.reduce((a, b) => a + b, 0));
 
   // A workday is full once it reaches the norm; days off never need hours.

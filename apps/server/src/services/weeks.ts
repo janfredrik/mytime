@@ -5,6 +5,7 @@ import {
   type LineDescriptor,
   type Week,
   addDays,
+  FLEX_EXCLUDED_PROJECTS,
   compareISODate,
   flexBalance,
   isMeaningfulEntry,
@@ -13,7 +14,7 @@ import {
   weekDates,
   weekStartOf,
 } from '@mytime/shared';
-import { and, asc, between, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, inArray, lt, notInArray, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/client.js';
 import { timeEntries, timecardLines, timecards } from '../db/schema.js';
@@ -259,7 +260,12 @@ export async function flexSummary(db: Db, user: User, today: string): Promise<Fl
     .from(timeEntries)
     .innerJoin(timecardLines, eq(timecardLines.id, timeEntries.lineId))
     .innerJoin(timecards, eq(timecards.id, timecardLines.timecardId))
-    .where(eq(timecards.userId, user.id))
+    .where(
+      and(
+        eq(timecards.userId, user.id),
+        notInArray(sql`trim(${timecardLines.projectNumber})`, [...FLEX_EXCLUDED_PROJECTS]),
+      ),
+    )
     .groupBy(timeEntries.date);
   const hoursByDate = new Map(rows.map((r) => [r.date, Number(r.hours)]));
   const firstDate = rows.map((r) => r.date).sort(compareISODate)[0];

@@ -3,6 +3,13 @@ import { holidayName } from './holidays.js';
 
 export const DEFAULT_DAILY_NORM = 8;
 
+/** Projects whose hours are paid separately and do not count towards flex (OnCall247 - CAT). */
+export const FLEX_EXCLUDED_PROJECTS: readonly string[] = ['245784'];
+
+export function countsTowardsFlex(projectNumber: string): boolean {
+  return !FLEX_EXCLUDED_PROJECTS.includes(projectNumber.trim());
+}
+
 export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }

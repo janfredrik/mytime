@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type Line,
+  countsTowardsFlex,
   dailyFlex,
+  flexHoursByDate,
   easterSunday,
   flexBalance,
   formatHoursExport,
@@ -81,5 +84,17 @@ describe('format', () => {
     expect(parseHours('')).toBeNull();
     expect(parseHours('abc')).toBeNull();
     expect(parseHours(7.5)).toBe(7.5);
+  });
+});
+
+describe('flex exclusions', () => {
+  it('leaves on-call hours (245784) out of flex', () => {
+    expect(countsTowardsFlex('245784')).toBe(false);
+    expect(countsTowardsFlex(' 245784 ')).toBe(false);
+    expect(countsTowardsFlex('266411')).toBe(true);
+    const entry = (date: string, hours: number) => ({ date, hours, comment: '', timeFrom: '', timeTo: '' });
+    const line = (projectNumber: string, hours: number) =>
+      ({ projectNumber, entries: [entry('2026-09-28', hours)] }) as unknown as Line;
+    expect(flexHoursByDate([line('266411', 8), line('245784', 3)]).get('2026-09-28')).toBe(8);
   });
 });

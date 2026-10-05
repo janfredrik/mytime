@@ -4,6 +4,7 @@ import {
   type WeekStatus,
   addDays,
   dailyFlex,
+  flexHoursByDate,
   formatHours,
   hoursByDate,
   isoWeekOf,
@@ -180,7 +181,8 @@ export function WeekView({
       flexFrom && date >= flexFrom ? dailyFlex(date, hours, dailyNorm, today) : null,
     [flexFrom, dailyNorm, today],
   );
-  const weekFlex = round2(dates.reduce((s, d) => s + (flexFor(d, totals.get(d) ?? 0) ?? 0), 0));
+  const flexTotals = useMemo(() => flexHoursByDate(lines ?? []), [lines]);
+  const weekFlex = round2(dates.reduce((s, d) => s + (flexFor(d, flexTotals.get(d) ?? 0) ?? 0), 0));
   const isCurrentWeek = dates.includes(today);
   const isFutureWeek = weekStart > today;
   const flexNote = !flexFrom

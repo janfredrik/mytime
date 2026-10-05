@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidISODate } from './dates.js';
+import { countsTowardsFlex } from './flex.js';
 
 export const isoDateSchema = z
   .string()
@@ -157,6 +158,11 @@ export function hoursByDate(lines: readonly Line[]): Map<string, number> {
     for (const e of line.entries) totals.set(e.date, (totals.get(e.date) ?? 0) + e.hours);
   }
   return totals;
+}
+
+/** Hours per date from the lines that count towards flex. */
+export function flexHoursByDate(lines: readonly Line[]): Map<string, number> {
+  return hoursByDate(lines.filter((l) => countsTowardsFlex(l.projectNumber)));
 }
 
 /** An entry carries information worth keeping (hours or any text). */

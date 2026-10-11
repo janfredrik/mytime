@@ -8,3 +8,4 @@ playwright-report/
 .pgdata/
 /data/
 /promo/
+.claude/launch.json

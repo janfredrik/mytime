@@ -1,10 +1,11 @@
 import { type Settings, parseHours } from '@mytime/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { type Density, useDensity } from '../lib/density';
 import { type ThemePref, useTheme } from '../lib/theme';
-import { Button, Dialog, Field, inputClass } from './ui';
+import { Upload } from './icons';
+import { Button, Dialog, Field, Spinner, inputClass } from './ui';
 
 const themeOptions: { value: ThemePref; label: string }[] = [
   { value: 'auto', label: 'Auto' },
@@ -53,13 +54,69 @@ function Segmented<T extends string>({
   );
 }
 
+/** Admin only: replace the shared time code catalog with a new export. */
+function CatalogUpload() {
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const upload = async (file: File) => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await api.uploadCatalog(file);
+      await qc.invalidateQueries({ queryKey: ['catalog'] });
+      const fmt = (n: number) => n.toLocaleString('nb-NO');
+      setResult({ ok: true, text: `Katalogen er oppdatert: ${fmt(res.projects)} prosjekter og ${fmt(res.tasks)} oppgaver.` });
+    } catch (err) {
+      setResult({ ok: false, text: err instanceof Error ? err.message : 'Opplastingen feilet' });
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="border-t border-line pt-4">
+      <fieldset>
+        <legend className="mb-1 block text-xs font-medium text-ink-muted">Timekodekatalog</legend>
+        <p className="mb-2 text-xs text-ink-subtle">
+          Last opp <code>mytime-timekoder.json</code>. Den erstatter hele katalogen for alle brukere.
+        </p>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json,application/json"
+          className="sr-only"
+          tabIndex={-1}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void upload(file);
+          }}
+        />
+        <Button onClick={() => fileRef.current?.click()} disabled={busy}>
+          {busy ? <Spinner /> : <Upload />} Last opp katalog
+        </Button>
+        {result && (
+          <p role="status" className={`mt-2 text-sm ${result.ok ? 'text-ink-muted' : 'text-negative'}`}>
+            {result.text}
+          </p>
+        )}
+      </fieldset>
+    </div>
+  );
+}
+
 export function SettingsDialog({
   open,
   settings,
+  isAdmin,
   onClose,
 }: {
   open: boolean;
   settings: Settings;
+  isAdmin: boolean;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -154,6 +211,7 @@ export function SettingsDialog({
           <Segmented name="density" options={densityOptions} value={density} onChange={setDensity} />
         </fieldset>
         {error && <p className="text-sm text-negative">{error}</p>}
+        {isAdmin && <CatalogUpload />}
         <button type="submit" hidden />
       </form>
     </Dialog>

@@ -9,3 +9,5 @@ playwright-report/
 /data/
 /promo/
 .claude/launch.json
+# Timekodekatalog eksportert fra mytime.tietoevry.com (interne kundedata, skal aldri inn i repoet)
+mytime-timekoder*

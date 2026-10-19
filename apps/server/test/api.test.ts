@@ -22,6 +22,7 @@ describe.skipIf(!DATABASE_URL)('API', () => {
       DATABASE_URL,
       SESSION_SECRET: 'test-secret-test-secret-test-secret!',
       DEV_AUTH_BYPASS: 'true',
+      ADMIN_EMAILS: 'Admin@example.test',
     });
     ({ db, close } = createDb(DATABASE_URL!));
     await runMigrations(db);
@@ -192,6 +193,62 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect((await alice.get('/api/me')).json().onboarded).toBe(false);
     expect((await alice.send('POST', '/api/onboarded')).statusCode).toBe(200);
     expect((await alice.get('/api/me')).json().onboarded).toBe(true);
+  });
+
+  it('lets admins replace the shared catalog that everyone can search', async () => {
+    await db.execute(sql`truncate catalog_projects cascade`);
+    const upload = (client: Awaited<ReturnType<typeof login>>, json: unknown) => {
+      const boundary = '----mytime';
+      const body = Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="mytime-timekoder.json"\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(json)}\r\n--${boundary}--\r\n`,
+      );
+      return app.inject({
+        method: 'PUT',
+        url: '/api/catalog',
+        headers: { ...client.headers, 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: body,
+      });
+    };
+    const catalog = [
+      {
+        project_id: 900001,
+        project_name: 'Kunde A - Drift',
+        project_number: '100001',
+        tasks: [
+          { task_id: 3, task_title: '1.10 - Ten', task_description: 'Ten' },
+          { task_id: 2, task_title: '1.9 - Nine', task_description: 'Nine' },
+          { task_id: 1, task_title: '06.1 - Travel', task_description: 'Travel' },
+        ],
+      },
+      { project_id: 900002, project_name: 'Kunde B - Database', project_number: '100002', tasks: [] },
+    ];
+
+    const alice = await login('alice');
+    expect((await alice.get('/api/me')).json().isAdmin).toBe(false);
+    expect((await upload(alice, catalog)).statusCode).toBe(403);
+
+    const admin = await login('admin');
+    expect((await admin.get('/api/me')).json().isAdmin).toBe(true);
+    const res = await upload(admin, catalog);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ projects: 2, tasks: 3 });
+    expect((await upload(admin, [])).statusCode).toBe(400);
+
+    const projects = (await alice.get('/api/catalog/projects')).json();
+    expect(projects).toEqual([
+      { id: 900001, number: '100001', name: 'Kunde A - Drift' },
+      { id: 900002, number: '100002', name: 'Kunde B - Database' },
+    ]);
+    const tasks = (await alice.get('/api/catalog/projects/900001/tasks')).json();
+    expect(tasks.map((t: { number: string }) => t.number)).toEqual(['1.9', '1.10', '06.1']);
+    expect(tasks[2]).toEqual({ id: 1, number: '06.1', name: 'Travel', description: 'Travel' });
+
+    // A new upload replaces the whole catalog.
+    await upload(admin, [catalog[1]]);
+    expect((await alice.get('/api/catalog/projects')).json()).toHaveLength(1);
+    expect((await alice.get('/api/catalog/projects/900001/tasks')).json()).toEqual([]);
+    // The e2e tests share this database and expect the free-text fields of an empty catalog.
+    await db.execute(sql`truncate catalog_projects cascade`);
   });
 
   it('logs out', async () => {

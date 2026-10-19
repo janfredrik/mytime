@@ -1,15 +1,50 @@
-import { type LineDescriptor, TEXT_LIMITS, joinNumberName, lineKey } from '@mytime/shared';
-import { type KeyboardEvent, useEffect, useId, useMemo, useState } from 'react';
+import {
+  type CatalogProject,
+  type CatalogTask,
+  type LineDescriptor,
+  TEXT_LIMITS,
+  joinNumberName,
+  lineKey,
+} from '@mytime/shared';
+import { useQuery } from '@tanstack/react-query';
+import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { api } from '../lib/api';
+import { CatalogPicker } from './CatalogPicker';
 import { Search } from './icons';
 import { Button, Dialog, Field, inputClass } from './ui';
+
+const DEFAULT_TYPE = 'Normal -NO';
 
 const EMPTY: LineDescriptor = {
   projectNumber: '',
   projectName: '',
   taskNumber: '',
   taskName: '',
-  type: 'Normal -NO',
+  type: DEFAULT_TYPE,
 };
+
+/** The catalog changes rarely; one fetch per hour is plenty. */
+export const CATALOG_STALE_MS = 60 * 60 * 1000;
+
+const projectSearch = (p: CatalogProject) => `${p.number} ${p.name}`;
+const projectKey = (p: CatalogProject) => p.id;
+const renderProject = (p: CatalogProject) => (
+  <div className="flex items-baseline gap-2">
+    <span className="tabular shrink-0 text-xs text-ink-subtle">{p.number}</span>
+    <span className="truncate">{p.name}</span>
+  </div>
+);
+
+const taskSearch = (t: CatalogTask) => `${t.number} ${t.name} ${t.description}`;
+const taskKey = (t: CatalogTask) => t.id;
+const renderTask = (t: CatalogTask) => (
+  <>
+    <div className="truncate">{joinNumberName(t.number, t.name)}</div>
+    {t.description && t.description !== t.name && (
+      <div className="truncate text-xs text-ink-muted">{t.description}</div>
+    )}
+  </>
+);
 
 /** Copy only the descriptor fields; callers may pass a full `Line` with id and entries. */
 function describe(line: LineDescriptor, map: (v: string) => string = (v) => v): LineDescriptor {
@@ -47,6 +82,8 @@ export function LineEditor({
   const [value, setValue] = useState<LineDescriptor>(EMPTY);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(-1);
+  const [manual, setManual] = useState(false);
+  const taskRef = useRef<HTMLInputElement>(null);
   const ids = useId();
 
   useEffect(() => {
@@ -54,8 +91,59 @@ export function LineEditor({
       setValue(initial ? describe(initial) : EMPTY);
       setQuery('');
       setActive(-1);
+      setManual(false);
     }
   }, [open, initial]);
+
+  const catalog = useQuery({
+    queryKey: ['catalog', 'projects'],
+    queryFn: api.catalogProjects,
+    staleTime: CATALOG_STALE_MS,
+  });
+  const projects = useMemo(() => catalog.data ?? [], [catalog.data]);
+  const hasCatalog = projects.length > 0;
+  const project = useMemo(
+    () => projects.find((p) => p.number === value.projectNumber.trim()),
+    [projects, value.projectNumber],
+  );
+  const tasksQuery = useQuery({
+    queryKey: ['catalog', 'tasks', project?.id],
+    queryFn: () => api.catalogTasks(project!.id),
+    staleTime: CATALOG_STALE_MS,
+    enabled: open && project !== undefined,
+  });
+  const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
+  const task =
+    tasks.find((t) => t.number === value.taskNumber.trim() && t.name === value.taskName.trim()) ??
+    tasks.find((t) => t.number === value.taskNumber.trim());
+  // Free-text fields: when there is no catalog, on request, or for a project the catalog lacks.
+  const outsideCatalog = hasCatalog && value.projectNumber.trim() !== '' && !project;
+  const showFields = !hasCatalog || manual || outsideCatalog;
+  // Once shown, keep the fields while the user types, even if the number turns into a known one.
+  useEffect(() => {
+    if (outsideCatalog) setManual(true);
+  }, [outsideCatalog]);
+
+  const selectProject = (p: CatalogProject) => {
+    setValue((prev) => ({
+      ...prev,
+      projectNumber: p.number,
+      projectName: p.name,
+      ...(p.number === prev.projectNumber.trim() ? {} : { taskNumber: '', taskName: '' }),
+      type: prev.type.trim() || DEFAULT_TYPE,
+    }));
+    // Next step: the task. Wait for the render that shows the project's tasks.
+    requestAnimationFrame(() => taskRef.current?.focus());
+  };
+
+  const selectTask = (t: CatalogTask) => {
+    setValue((prev) => ({
+      ...prev,
+      taskNumber: t.number,
+      taskName: t.name,
+      type: prev.type.trim() || DEFAULT_TYPE,
+    }));
+  };
 
   const lists = useMemo(
     () => ({
@@ -71,7 +159,7 @@ export function LineEditor({
           .filter((s) => !value.projectNumber || s.projectNumber === value.projectNumber)
           .map((s) => s.taskName),
       ),
-      type: distinct(['Normal -NO', ...suggestions.map((s) => s.type)]),
+      type: distinct([DEFAULT_TYPE, ...suggestions.map((s) => s.type)]),
     }),
     [suggestions, value.projectNumber],
   );
@@ -103,6 +191,7 @@ export function LineEditor({
   };
 
   const trimmed = describe(value, (v) => v.trim());
+  if (!trimmed.type) trimmed.type = DEFAULT_TYPE;
   const valid = trimmed.projectNumber !== '' || trimmed.projectName !== '';
   const duplicate =
     existingKeys.has(lineKey(trimmed)) && (!initial || lineKey(initial) !== lineKey(trimmed));
@@ -255,13 +344,54 @@ export function LineEditor({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr]">
-          {input('projectNumber', 'Prosjektnummer', '266411', !!initial || suggestions.length === 0)}
-          {input('projectName', 'Prosjektnavn')}
-          {input('taskNumber', 'Oppgavenummer')}
-          {input('taskName', 'Oppgavenavn')}
-        </div>
-        {input('type', 'Type', 'Normal -NO')}
+        {hasCatalog && (
+          <div className="space-y-3">
+            <CatalogPicker
+              label="Prosjekt"
+              placeholder="Søk på prosjektnummer eller navn…"
+              items={projects}
+              emptyText="Katalogen er tom"
+              selectedLabel={joinNumberName(value.projectNumber, value.projectName)}
+              searchText={projectSearch}
+              itemKey={projectKey}
+              renderItem={renderProject}
+              onSelect={selectProject}
+              autoFocus={!initial && suggestions.length === 0}
+            />
+            <CatalogPicker
+              label="Oppgave"
+              placeholder={project ? 'Søk på oppgavenummer eller navn…' : 'Velg prosjekt først'}
+              items={tasks}
+              loading={tasksQuery.isPending && project !== undefined}
+              emptyText={project ? 'Ingen oppgaver i katalogen for dette prosjektet' : 'Velg prosjekt først'}
+              selectedLabel={task ? joinNumberName(task.number, task.name) : joinNumberName(value.taskNumber, value.taskName)}
+              searchText={taskSearch}
+              itemKey={taskKey}
+              renderItem={renderTask}
+              onSelect={selectTask}
+              inputRef={taskRef}
+            />
+            {!showFields && (
+              <button
+                type="button"
+                className="text-xs text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+                onClick={() => setManual(true)}
+              >
+                Finner du ikke prosjektet? Skriv inn selv
+              </button>
+            )}
+          </div>
+        )}
+
+        {showFields && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr]">
+            {input('projectNumber', 'Prosjektnummer', '266411', !hasCatalog && (!!initial || suggestions.length === 0))}
+            {input('projectName', 'Prosjektnavn')}
+            {input('taskNumber', 'Oppgavenummer')}
+            {input('taskName', 'Oppgavenavn')}
+          </div>
+        )}
+        {input('type', 'Type', DEFAULT_TYPE)}
         {duplicate && (
           <p className="text-xs text-warning">En linje med samme prosjekt, oppgave og type finnes allerede denne uka.</p>
         )}

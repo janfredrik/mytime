@@ -88,6 +88,8 @@ export interface Me {
   settings: Settings;
   /** Has finished or skipped the first-run welcome. */
   onboarded: boolean;
+  /** Listed in ADMIN_EMAILS; may replace the shared time code catalog. */
+  isAdmin: boolean;
 }
 
 export interface FlexSummary {

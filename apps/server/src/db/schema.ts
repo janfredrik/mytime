@@ -1,5 +1,6 @@
 import {
   date,
+  primaryKey,
   index,
   integer,
   jsonb,
@@ -96,4 +97,30 @@ export const timeEntries = pgTable(
     timeTo: text('time_to').notNull().default(''),
   },
   (t) => [unique('time_entries_line_date').on(t.lineId, t.date)],
+);
+
+/** Shared time code catalog, replaced as a whole when an admin uploads a new export. */
+export const catalogProjects = pgTable(
+  'catalog_projects',
+  {
+    /** The project's id in the existing system. */
+    id: integer('id').primaryKey(),
+    number: text('number').notNull(),
+    name: text('name').notNull().default(''),
+  },
+  (t) => [index('catalog_projects_number').on(t.number)],
+);
+
+export const catalogTasks = pgTable(
+  'catalog_tasks',
+  {
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => catalogProjects.id, { onDelete: 'cascade' }),
+    id: integer('id').notNull(),
+    number: text('number').notNull(),
+    name: text('name').notNull().default(''),
+    description: text('description').notNull().default(''),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.id] })],
 );

@@ -96,7 +96,7 @@ export async function buildApp(opts: AppOptions) {
         ? fakeInviter
         : createGraphInviter(config);
   await registerInvite(app, { config, inviter });
-  await registerApi(app, { db, requireUser, today: opts.today });
+  await registerApi(app, { db, requireUser, adminEmails: config.ADMIN_EMAILS, today: opts.today });
 
   const webDist = findWebDist(config.WEB_DIST);
   if (webDist) {

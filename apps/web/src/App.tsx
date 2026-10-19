@@ -115,7 +115,12 @@ export function App() {
         />
       </main>
       {!user.onboarded && <Welcome user={user} onDone={(week) => week && navigate(week)} />}
-      <SettingsDialog open={settingsOpen} settings={user.settings} onClose={() => setSettingsOpen(false)} />
+      <SettingsDialog
+        open={settingsOpen}
+        settings={user.settings}
+        isAdmin={user.isAdmin}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }

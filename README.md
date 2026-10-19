@@ -8,7 +8,9 @@ filer i samme format som dagens løsning. Innlogging med Microsoft Entra ID.
 - «Kopier fra forrige uke» kopierer linjene uten timer
 - Import/eksport av `.xlsx` (ark `Timecard`, kolonner `Project number … Time to`). Eksporten er identisk
   med dagens format, filnavn `week40_02102026130256.xlsx`
-- Hver bruker ser kun sine egne timer. Ingen felles katalog: linjer føres fritt eller kommer fra import
+- Hver bruker ser kun sine egne timer
+- Felles timekodekatalog: velg prosjekt og deretter oppgave med søk. Prosjekter som ikke finnes i
+  katalogen kan fortsatt skrives inn selv. Type er `Normal -NO` hvis ikke noe annet er valgt
 
 ## Arkitektur
 
@@ -140,6 +142,7 @@ Start med `docker compose up -d` og følg med på oppstarten med `docker compose
 | `PUBLIC_URL` | Offentlig adresse, nøyaktig slik den står i redirect-URI-en |
 | `ENTRA_*` | Fra app registration (se over) |
 | `GUEST_INVITE_DOMAINS` | Valgfritt. Kommaseparerte domener som kan legge seg til som gjest (se punkt 7 over) |
+| `ADMIN_EMAILS` | Valgfritt. Kommaseparerte e-postadresser som kan laste opp timekodekatalogen (se under) |
 | `SESSION_SECRET` | `openssl rand -hex 32` |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` – kun bokstaver og tall, siden det settes inn i en database-URL |
 | `APP_PORT` | Port på verten appen lytter på (standard `3135`) |
@@ -152,6 +155,20 @@ For å bygge fra kildekoden i stedet (fra repoet): `docker build -t ghcr.io/janf
 
 **Oppdatering:** `docker compose pull && docker compose up -d` (kjør `git pull` først hvis du bruker
 repoet). Databasemigrasjoner kjøres automatisk ved oppstart.
+
+### Timekodekatalog
+
+Katalogen er felles for alle brukere og lastes opp av en administrator (en adresse i `ADMIN_EMAILS`)
+under **Innstillinger → Last opp katalog**. Filen er `mytime-timekoder.json` fra eksportscriptet som
+kjøres i nettleserkonsollen på dagens løsning: én oppføring per prosjekt (`project_id`,
+`project_number`, `project_name`) med `tasks` (`task_id`, `task_title`, `task_description`). En ny
+opplasting erstatter hele katalogen. Oppgavetittelen deles ved første ` - ` i oppgavenummer og -navn
+(`1.1.1 - Maintenance Work` → `1.1.1` og `Maintenance Work`).
+
+Katalogen inneholder interne kunde- og prosjektnavn. Den lagres bare i databasen, og
+`mytime-timekoder*` ligger i `.gitignore` slik at filen ikke havner i repoet. Filen kan være rundt
+10 MB, så reverse proxyen må tillate opplastinger av den størrelsen (f.eks. `client_max_body_size`
+i Nginx).
 
 ### Reverse proxy
 

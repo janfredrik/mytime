@@ -1,5 +1,8 @@
 import type {
   CalendarWeek,
+  CatalogProject,
+  CatalogTask,
+  CatalogUploadResult,
   FlexSummary,
   ImportCommit,
   ImportPreview,
@@ -96,6 +99,14 @@ export const api = {
     request<CalendarWeek[]>('GET', `/api/calendar?from=${from}&to=${to}`),
   flex: () => request<FlexSummary>('GET', '/api/flex'),
   suggestions: () => request<LineDescriptor[]>('GET', '/api/suggestions'),
+  catalogProjects: () => request<CatalogProject[]>('GET', '/api/catalog/projects'),
+  catalogTasks: (projectId: number) =>
+    request<CatalogTask[]>('GET', `/api/catalog/projects/${projectId}/tasks`),
+  uploadCatalog: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<CatalogUploadResult>('PUT', '/api/catalog', form);
+  },
   markOnboarded: () => request<{ ok: true }>('POST', '/api/onboarded'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/settings', settings),
   importPreview: (weekStart: string, file: File) => {

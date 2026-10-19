@@ -22,7 +22,7 @@ import { newLine } from '../lib/lines';
 import { useCelebrate } from '../lib/useCelebrate';
 import { type SaveErrorKind, type SaveState, useWeekEditor } from '../lib/useWeekEditor';
 import { ImportDialog } from './ImportDialog';
-import { LineEditor } from './LineEditor';
+import { CATALOG_STALE_MS, LineEditor } from './LineEditor';
 import { MiniCalendar } from './MiniCalendar';
 import { TimeGrid, gridDays } from './TimeGrid';
 import { Alert, Check, ChevronLeft, ChevronRight, Close, Copy, Download, Plus, Upload } from './icons';
@@ -153,6 +153,8 @@ export function WeekView({
   const { lines, meta } = editor;
   const flex = useQuery({ queryKey: ['flex'], queryFn: api.flex });
   const suggestions = useQuery({ queryKey: ['suggestions'], queryFn: api.suggestions });
+  // Load the shared catalog up front so the line editor opens with it ready.
+  useQuery({ queryKey: ['catalog', 'projects'], queryFn: api.catalogProjects, staleTime: CATALOG_STALE_MS });
 
   const [editing, setEditing] = useState<{ id: string | null } | null>(null);
   const [importing, setImporting] = useState(false);

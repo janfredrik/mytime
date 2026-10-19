@@ -27,6 +27,16 @@ const envSchema = z.object({
         .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
         .filter(Boolean),
     ),
+  /** Comma-separated email addresses that may upload the shared time code catalog. */
+  ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean),
+    ),
   DEV_AUTH_BYPASS: bool,
   WEB_DIST: z.string().optional(),
 });

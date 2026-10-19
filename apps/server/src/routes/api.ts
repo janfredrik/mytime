@@ -1,5 +1,7 @@
 import {
+  type CatalogUploadResult,
   type ImportPreview,
+  catalogUploadSchema,
   type Me,
   importCommitSchema,
   isValidISODate,
@@ -15,7 +17,8 @@ import type { z } from 'zod';
 import type { User } from '../auth/plugin.js';
 import type { Db } from '../db/client.js';
 import { users } from '../db/schema.js';
-import { badRequest } from '../errors.js';
+import { HttpError, badRequest } from '../errors.js';
+import * as catalog from '../services/catalog.js';
 import * as weeks from '../services/weeks.js';
 import { buildTimecardXlsx, exportFileName } from '../xlsx/export.js';
 import { parseTimecardXlsx } from '../xlsx/import.js';
@@ -35,7 +38,10 @@ function weekParam(req: FastifyRequest): string {
   return weekStart;
 }
 
-function toMe(user: User): Me {
+/** The catalog export for ~2 500 projects is around 10 MB of JSON. */
+const MAX_CATALOG_BYTES = 50 * 1024 * 1024;
+
+function toMe(user: User, adminEmails: readonly string[]): Me {
   return {
     id: user.id,
     name: user.name,
@@ -46,6 +52,7 @@ function toMe(user: User): Me {
       flexStartDate: user.flexStartDate,
     },
     onboarded: user.onboardedAt !== null,
+    isAdmin: user.email !== '' && adminEmails.includes(user.email.toLowerCase()),
   };
 }
 
@@ -54,10 +61,12 @@ export async function registerApi(
   deps: {
     db: Db;
     requireUser: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
+    adminEmails?: readonly string[];
     today?: () => string;
   },
 ) {
   const { db, requireUser } = deps;
+  const adminEmails = deps.adminEmails ?? [];
   const today = deps.today ?? (() => todayISO());
 
   await app.register(
@@ -65,9 +74,9 @@ export async function registerApi(
       api.addHook('preHandler', requireUser);
       const user = (req: FastifyRequest) => req.user!;
 
-      api.get('/me', async (req) => toMe(user(req)));
+      api.get('/me', async (req) => toMe(user(req), adminEmails));
 
-      api.get('/settings', async (req) => toMe(user(req)).settings);
+      api.get('/settings', async (req) => toMe(user(req), adminEmails).settings);
       api.put('/settings', async (req) => {
         const body = parse(settingsSchema, req.body);
         const [updated] = await db
@@ -79,7 +88,7 @@ export async function registerApi(
           })
           .where(eq(users.id, user(req).id))
           .returning();
-        return toMe(updated!).settings;
+        return toMe(updated!, adminEmails).settings;
       });
 
       api.post('/onboarded', async (req) => {
@@ -98,6 +107,30 @@ export async function registerApi(
       });
 
       api.get('/suggestions', async (req) => weeks.suggestions(db, user(req).id));
+
+      api.get('/catalog/projects', async () => catalog.listProjects(db));
+
+      api.get('/catalog/projects/:projectId/tasks', async (req) => {
+        const projectId = Number((req.params as { projectId: string }).projectId);
+        if (!Number.isSafeInteger(projectId) || projectId <= 0) throw badRequest('Ugyldig prosjekt');
+        return catalog.listTasks(db, projectId);
+      });
+
+      api.put('/catalog', async (req): Promise<CatalogUploadResult> => {
+        if (!toMe(user(req), adminEmails).isAdmin) {
+          throw new HttpError(403, 'Bare administratorer kan laste opp katalogen');
+        }
+        const file = await req.file({ limits: { fileSize: MAX_CATALOG_BYTES } });
+        if (!file) throw badRequest('Mangler fil');
+        const buffer = await file.toBuffer();
+        let json: unknown;
+        try {
+          json = JSON.parse(buffer.toString('utf8').replace(/^\uFEFF/, ''));
+        } catch {
+          throw badRequest('Filen er ikke gyldig JSON. Last opp mytime-timekoder.json');
+        }
+        return catalog.replaceCatalog(db, parse(catalogUploadSchema, json));
+      });
 
       api.get('/weeks/:weekStart', async (req) => weeks.getWeek(db, user(req).id, weekParam(req)));
 

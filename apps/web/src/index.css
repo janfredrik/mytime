@@ -351,6 +351,21 @@ input[type='date']::-webkit-calendar-picker-indicator {
   }
 }
 
+/* First visit: guest access is step one, so it gets a tinted frame above the sign-in button. It arrives
+   once the server confirms guest access is on, so it eases in rather than popping the button down. */
+.guest-first {
+  background: color-mix(in srgb, var(--color-accent-soft) 70%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  animation: guest-first-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes guest-first-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 .ms-signin-ready {
   /* Waits for the stamp to land before pointing at the next step. */
   animation: signin-ready 1.6s cubic-bezier(0.16, 1, 0.3, 1) 700ms 2;
@@ -370,6 +385,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 @media (prefers-reduced-motion: reduce) {
   .guest-reveal,
   .guest-done,
+  .guest-first,
   .stamp-disc,
   .stamp-tick,
   .ms-signin-ready {

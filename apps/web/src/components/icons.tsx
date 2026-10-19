@@ -120,3 +120,9 @@ export const Clock = (p: IconProps) => (
     <path d="M12 7v5l3 2" />
   </Icon>
 );
+export const UserPlus = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="9" cy="8" r="4" />
+    <path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6" />
+  </Icon>
+);

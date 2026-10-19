@@ -2,7 +2,8 @@ import { formatHours, holidayName, isoWeekOf, todayISO, weekDates, weekStartOf }
 import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, api } from '../lib/api';
 import { dayName, shortDate } from '../lib/format';
-import { Alert, Check, Clock } from './icons';
+import { hasSignedInHere } from '../lib/visited';
+import { Alert, Check, Clock, UserPlus } from './icons';
 import { Spinner } from './ui';
 
 /* The logged-out front page. Its one moment: this week's timesheet fills itself in, keystroke by
@@ -10,8 +11,8 @@ import { Spinner } from './ui';
 
 const ROWS = [
   { task: 'Fravær', project: 'Lunsj', hours: [0.5, 0.5, 0.5, 0.5, 0.5] },
-  { task: 'Mjøsa 110', project: '12.02 Senior - Klient', hours: [1.5, 2, 1, 1.5, 5.5] },
-  { task: 'GreenSouth', project: '1.1 Konsulent - Seniorkonsulent', hours: [6, 5.5, 6.5, 6, 2] },
+  { task: 'Havbris', project: '3.2 Arkitekt - Løsning', hours: [1.5, 2, 1, 1.5, 5.5] },
+  { task: 'Tindefjell', project: '1.1 Konsulent - Seniorkonsulent', hours: [6, 5.5, 6.5, 6, 2] },
 ];
 
 type Cell = { r: number; c: number };
@@ -109,12 +110,22 @@ function MicrosoftLogo() {
   );
 }
 
-function SignInButton({ ref, ready }: { ref: RefObject<HTMLAnchorElement | null>; ready: boolean }) {
+function SignInButton({
+  ref,
+  ready,
+  autoFocus,
+}: {
+  ref: RefObject<HTMLAnchorElement | null>;
+  ready: boolean;
+  autoFocus: boolean;
+}) {
   const [leaving, setLeaving] = useState(false);
   const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
 
-  // The only action on the page, so Enter signs in. React's autoFocus doesn't apply to links.
-  useEffect(() => ref.current?.focus(), [ref]);
+  // Usually the only action on the page, so Enter signs in. React's autoFocus doesn't apply to links.
+  useEffect(() => {
+    if (autoFocus) ref.current?.focus();
+  }, [ref, autoFocus]);
 
   useEffect(() => {
     // Coming back with the browser's back button restores the page from cache; reset the state.
@@ -285,18 +296,20 @@ type InviteState =
   | { step: 'error'; message: string }
   | { step: 'done'; status: 'ready' | 'invited' | 'pending' };
 
+/** `where` says which side of the panel the sign-in button is on: below it on a first visit, above otherwise. */
 const DONE_COPY = {
   invited: {
     title: 'Du er lagt til som gjest',
-    body: 'Logg inn med Microsoft-knappen over. Første gang ber Microsoft deg godta invitasjonen.',
+    body: (where: string) =>
+      `Logg inn med Microsoft-knappen ${where}. Første gang ber Microsoft deg godta invitasjonen.`,
   },
   ready: {
     title: 'Kontoen din har allerede tilgang',
-    body: 'Logg inn med knappen over, og velg jobbkontoen din når Microsoft spør.',
+    body: (where: string) => `Logg inn med knappen ${where}, og velg jobbkontoen din når Microsoft spør.`,
   },
   pending: {
     title: 'Invitasjonen er sendt',
-    body: 'Det kan ta et minutt før kontoen er klar. Vent litt, og logg inn med knappen over.',
+    body: (where: string) => `Det kan ta et minutt før kontoen er klar. Vent litt, og logg inn med knappen ${where}.`,
   },
 };
 
@@ -334,15 +347,23 @@ function StampMark() {
   );
 }
 
-/** For people outside the tenant: add themselves as a guest from an approved domain, then sign in. */
-function GuestAccess({ onReady }: { onReady: () => void }) {
+/** For people outside the tenant: add themselves as a guest from an approved domain, then sign in.
+    On a browser that has never signed in, it's step one, framed and placed above the sign-in button;
+    after that it shrinks to a quiet "can't sign in?" link below it. */
+function GuestAccess({ onReady, firstVisit }: { onReady: () => void; firstVisit: boolean }) {
   const [open, setOpen] = useState(() => window.location.hash === '#tilgang');
   // Clipping is only needed while the panel unfolds; afterwards the stamp's sparks may fly past its edge.
   const [settled, setSettled] = useState(open);
   const [email, setEmail] = useState('');
   const [state, setState] = useState<InviteState>({ step: 'idle' });
   const inputRef = useRef<HTMLInputElement>(null);
+  const startRef = useRef<HTMLButtonElement>(null);
   const busy = state.step === 'sending';
+
+  useEffect(() => {
+    if (firstVisit && !open) startRef.current?.focus();
+    // Only on arrival: the first step gets Enter, the way the sign-in button does for returning visitors.
+  }, []);
 
   useEffect(() => {
     if (open && state.step === 'idle') inputRef.current?.focus({ preventScroll: true });
@@ -372,6 +393,136 @@ function GuestAccess({ onReady }: { onReady: () => void }) {
     }
   };
 
+  const toggle = () => {
+    setSettled(false);
+    setOpen((o) => !o);
+  };
+
+  const body = (
+    <>
+    {state.step === 'done' ? (
+      <div role="status" className="flex gap-3.5">
+        {state.status === 'pending' ? (
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning">
+            <Clock size={16} strokeWidth={2.2} />
+          </span>
+        ) : (
+          <StampMark />
+        )}
+        <div className="guest-done">
+          <p className="font-semibold">{DONE_COPY[state.status].title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-ink-muted">{DONE_COPY[state.status].body(firstVisit ? 'under' : 'over')}</p>
+          <p className="mt-2 text-xs text-ink-subtle">{email}</p>
+        </div>
+      </div>
+    ) : (
+      <form onSubmit={submit} noValidate>
+        {!firstVisit && (
+          <p className="mb-4 text-sm leading-relaxed text-ink-muted">
+            Skriv inn jobbadressen din, så legger vi deg til som gjest.
+          </p>
+        )}
+        <label htmlFor="guest-email" className="mb-1.5 block text-xs font-medium text-ink-muted">
+          Jobbadresse
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            ref={inputRef}
+            id="guest-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            spellCheck={false}
+            required
+            value={email}
+            readOnly={busy}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (state.step === 'error') setState({ step: 'idle' });
+            }}
+            placeholder="navn@firma.no"
+            aria-invalid={state.step === 'error'}
+            aria-describedby="guest-hint"
+            className="h-11 w-full min-w-0 rounded-lg sm:flex-1 border border-line-strong bg-surface px-3 text-[15px] text-ink placeholder:text-ink-subtle focus:border-accent focus:ring-2 focus:ring-accent/25 focus:outline-none aria-invalid:border-negative aria-invalid:focus:border-negative aria-invalid:focus:ring-negative/25 read-only:text-ink-muted"
+          />
+          <button
+            type="submit"
+            disabled={!email.trim()}
+            aria-busy={busy}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 aria-busy:pointer-events-none"
+          >
+            {busy && <Spinner className="h-3.5 w-3.5" />}
+            {busy ? 'Legger til …' : 'Gi meg tilgang'}
+          </button>
+        </div>
+        <p id="guest-hint" aria-live="polite" className="mt-2 min-h-[1.25rem] text-xs leading-5">
+          {state.step === 'error' ? (
+            <span className="inline-flex items-start gap-1.5 text-negative">
+              <Alert size={13} className="mt-[3px] shrink-0" />
+              {state.message}
+            </span>
+          ) : (
+            busy && (
+              <span className="text-ink-muted">
+                {state.slow ? 'Venter på at kontoen blir klar. Det tar noen sekunder …' : 'Legger deg til som gjest …'}
+              </span>
+            )
+          )}
+        </p>
+      </form>
+    )}
+    </>
+  );
+
+  const reveal = (className: string) => (
+    <div
+      id="guest-access"
+      className="guest-reveal"
+      data-open={open}
+      data-settled={settled}
+      inert={!open}
+      onTransitionEnd={(e) => e.propertyName === 'grid-template-rows' && setSettled(open)}
+    >
+      <div className="min-h-0">
+        <div className={className}>{body}</div>
+      </div>
+    </div>
+  );
+
+  if (firstVisit) {
+    const done = state.step === 'done';
+    return (
+      <div className="guest-first mt-9 max-w-[25rem] rounded-xl px-4 pt-4 pb-4 sm:px-5">
+        {!done && (
+          <div className="flex gap-3.5">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink">
+              <UserPlus size={16} strokeWidth={2.1} />
+            </span>
+            <div className="min-w-0">
+              <p className="font-semibold">Første gang her?</p>
+              <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+                Legg deg til som gjest før du logger inn. Det gjør du bare én gang, og det tar under 10 sekunder.
+              </p>
+              {!open && (
+                <button
+                  ref={startRef}
+                  type="button"
+                  aria-expanded={open}
+                  aria-controls="guest-access"
+                  onClick={toggle}
+                  className="mt-3.5 inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-3.5 text-sm font-semibold text-accent-ink shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  Legg meg til som gjest
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {reveal(done ? '' : 'mt-4 border-t border-accent/20 pt-4')}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4">
       <p className="text-sm text-ink-subtle">
@@ -380,98 +531,13 @@ function GuestAccess({ onReady }: { onReady: () => void }) {
           type="button"
           aria-expanded={open}
           aria-controls="guest-access"
-          onClick={() => {
-            setSettled(false);
-            setOpen((o) => !o);
-          }}
+          onClick={toggle}
           className="guest-toggle font-medium text-ink-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink hover:decoration-accent"
         >
           Får du ikke logget inn?
         </button>
       </p>
-
-      <div
-        id="guest-access"
-        className="guest-reveal"
-        data-open={open}
-        data-settled={settled}
-        inert={!open}
-        onTransitionEnd={(e) => e.propertyName === 'grid-template-rows' && setSettled(open)}
-      >
-        <div className="min-h-0">
-          <div className="guest-panel mt-5 max-w-[25rem] border-t border-line pt-5">
-            {state.step === 'done' ? (
-              <div role="status" className="flex gap-3.5">
-                {state.status === 'pending' ? (
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning">
-                    <Clock size={16} strokeWidth={2.2} />
-                  </span>
-                ) : (
-                  <StampMark />
-                )}
-                <div className="guest-done">
-                  <p className="font-semibold">{DONE_COPY[state.status].title}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-ink-muted">{DONE_COPY[state.status].body}</p>
-                  <p className="mt-2 text-xs text-ink-subtle">{email}</p>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={submit} noValidate>
-                <p className="text-sm leading-relaxed text-ink-muted">
-                  Skriv inn jobbadressen din, så legger vi deg til som gjest.
-                </p>
-                <label htmlFor="guest-email" className="mt-4 mb-1.5 block text-xs font-medium text-ink-muted">
-                  Jobbadresse
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    ref={inputRef}
-                    id="guest-email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    spellCheck={false}
-                    required
-                    value={email}
-                    readOnly={busy}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (state.step === 'error') setState({ step: 'idle' });
-                    }}
-                    placeholder="navn@firma.no"
-                    aria-invalid={state.step === 'error'}
-                    aria-describedby="guest-hint"
-                    className="h-11 w-full min-w-0 rounded-lg sm:flex-1 border border-line-strong bg-surface px-3 text-[15px] text-ink placeholder:text-ink-subtle focus:border-accent focus:ring-2 focus:ring-accent/25 focus:outline-none aria-invalid:border-negative aria-invalid:focus:border-negative aria-invalid:focus:ring-negative/25 read-only:text-ink-muted"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!email.trim()}
-                    aria-busy={busy}
-                    className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 aria-busy:pointer-events-none"
-                  >
-                    {busy && <Spinner className="h-3.5 w-3.5" />}
-                    {busy ? 'Legger til …' : 'Gi meg tilgang'}
-                  </button>
-                </div>
-                <p id="guest-hint" aria-live="polite" className="mt-2 min-h-[1.25rem] text-xs leading-5">
-                  {state.step === 'error' ? (
-                    <span className="inline-flex items-start gap-1.5 text-negative">
-                      <Alert size={13} className="mt-[3px] shrink-0" />
-                      {state.message}
-                    </span>
-                  ) : (
-                    busy && (
-                      <span className="text-ink-muted">
-                        {state.slow ? 'Venter på at kontoen blir klar. Det tar noen sekunder …' : 'Legger deg til som gjest …'}
-                      </span>
-                    )
-                  )}
-                </p>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
+      {reveal('guest-panel mt-5 max-w-[25rem] border-t border-line pt-5')}
     </div>
   );
 }
@@ -479,7 +545,10 @@ function GuestAccess({ onReady }: { onReady: () => void }) {
 export function Landing() {
   const signIn = useRef<HTMLAnchorElement>(null);
   const [ready, setReady] = useState(false);
-  const [guestAccess, setGuestAccess] = useState(false);
+  // Unknown until the server answers; null keeps the guest prompt from flashing in after first paint.
+  const [guestAccess, setGuestAccess] = useState<boolean | null>(null);
+  const firstVisit = useMemo(() => !hasSignedInHere(), []);
+  const firstGuest = guestAccess === true && firstVisit;
 
   useEffect(() => {
     api.inviteEnabled().then(
@@ -487,6 +556,16 @@ export function Landing() {
       () => setGuestAccess(false),
     );
   }, []);
+
+  const guestStep = guestAccess && (
+    <GuestAccess
+      firstVisit={firstVisit}
+      onReady={() => {
+        setReady(true);
+        signIn.current?.focus({ preventScroll: true });
+      }}
+    />
+  );
 
   return (
     <div className="landing relative flex min-h-dvh flex-col overflow-hidden">
@@ -505,18 +584,15 @@ export function Landing() {
             Ikke kast bort verdifulle minutter
           </h1>
           <p className="mt-5 max-w-[34ch] text-lg leading-relaxed text-ink-muted">
-            Importer, før timene, følg fleksen og eksporter rett til timesystemet. Lagres mens du skriver.
+            Importer, før timene, følg fleksen og eksporter rett til timesystemet.
+            <span className="hidden sm:inline"> Lagres mens du skriver.</span>
           </p>
-          <div className="mt-9">
-            <SignInButton ref={signIn} ready={ready} />
+          {firstGuest && guestStep}
+          <div className={firstGuest ? 'mt-4' : 'mt-9'}>
+            <SignInButton ref={signIn} ready={ready} autoFocus={!firstGuest} />
           </div>
-          {guestAccess ? (
-            <GuestAccess
-              onReady={() => {
-                setReady(true);
-                signIn.current?.focus({ preventScroll: true });
-              }}
-            />
+          {guestAccess && !firstGuest ? (
+            guestStep
           ) : (
             <p className="mt-4 text-sm text-ink-subtle">Bruk jobbkontoen din</p>
           )}

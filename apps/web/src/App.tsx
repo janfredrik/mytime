@@ -9,6 +9,7 @@ import { Clock, Logout, Settings } from './components/icons';
 import { Spinner } from './components/ui';
 import { ApiError, api } from './lib/api';
 import { weekFromUrl, weekToUrlParam } from './lib/format';
+import { rememberSignedIn } from './lib/visited';
 
 function useToday() {
   const [today, setToday] = useState(() => todayISO());
@@ -52,6 +53,11 @@ export function App() {
     const url = `/?uke=${weekToUrlParam(ws)}`;
     if (window.location.pathname + window.location.search !== url) window.history.pushState(null, '', url);
   }, []);
+
+  // Next time this browser lands on the sign-in page, skip the first-visit guest prompt.
+  useEffect(() => {
+    if (me.data) rememberSignedIn();
+  }, [me.data]);
 
   if (me.isLoading) {
     return (

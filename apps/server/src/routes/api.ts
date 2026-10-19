@@ -12,6 +12,7 @@ import {
   todayISO,
 } from '@mytime/shared';
 import { eq } from 'drizzle-orm';
+import { gunzipSync } from 'node:zlib';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import type { User } from '../auth/plugin.js';
@@ -38,7 +39,7 @@ function weekParam(req: FastifyRequest): string {
   return weekStart;
 }
 
-/** The catalog export for ~2 500 projects is around 10 MB of JSON. */
+/** The catalog export for ~2 500 projects is around 11 MB of JSON (under 1 MB gzipped). */
 const MAX_CATALOG_BYTES = 50 * 1024 * 1024;
 
 function toMe(user: User, adminEmails: readonly string[]): Me {
@@ -122,7 +123,15 @@ export async function registerApi(
         }
         const file = await req.file({ limits: { fileSize: MAX_CATALOG_BYTES } });
         if (!file) throw badRequest('Mangler fil');
-        const buffer = await file.toBuffer();
+        let buffer = await file.toBuffer();
+        // The web app sends the export gzipped; plain JSON works too (e.g. with curl).
+        if (buffer[0] === 0x1f && buffer[1] === 0x8b) {
+          try {
+            buffer = gunzipSync(buffer, { maxOutputLength: MAX_CATALOG_BYTES });
+          } catch {
+            throw badRequest('Kunne ikke pakke ut filen');
+          }
+        }
         let json: unknown;
         try {
           json = JSON.parse(buffer.toString('utf8').replace(/^\uFEFF/, ''));

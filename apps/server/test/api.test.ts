@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -197,11 +198,16 @@ describe.skipIf(!DATABASE_URL)('API', () => {
 
   it('lets admins replace the shared catalog that everyone can search', async () => {
     await db.execute(sql`truncate catalog_projects cascade`);
-    const upload = (client: Awaited<ReturnType<typeof login>>, json: unknown) => {
+    const upload = (client: Awaited<ReturnType<typeof login>>, json: unknown, gzip = false) => {
       const boundary = '----mytime';
-      const body = Buffer.from(
-        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="mytime-timekoder.json"\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(json)}\r\n--${boundary}--\r\n`,
-      );
+      const content = Buffer.from(JSON.stringify(json));
+      const body = Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="mytime-timekoder.json"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+        ),
+        gzip ? gzipSync(content) : content,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]);
       return app.inject({
         method: 'PUT',
         url: '/api/catalog',
@@ -229,7 +235,7 @@ describe.skipIf(!DATABASE_URL)('API', () => {
 
     const admin = await login('admin');
     expect((await admin.get('/api/me')).json().isAdmin).toBe(true);
-    const res = await upload(admin, catalog);
+    const res = await upload(admin, catalog, true);
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ projects: 2, tasks: 3 });
     expect((await upload(admin, [])).statusCode).toBe(400);

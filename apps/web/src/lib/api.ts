@@ -42,6 +42,7 @@ async function errorFrom(res: Response): Promise<ApiError> {
     // Non-JSON bodies come from a proxy in front of the app, not from MyTime itself.
   }
   if (res.status === 401) message = 'Økten er utløpt. Logg inn på nytt';
+  else if (res.status === 413 && !message) message = 'Filen er for stor for serveren (413)';
   else if (!message) {
     message =
       res.status >= 500
@@ -69,6 +70,25 @@ async function exportWeek(weekStart: string): Promise<{ blob: Blob; fileName: st
   const disposition = res.headers.get('content-disposition') ?? '';
   const fileName = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? `uke-${weekStart}.xlsx`;
   return { blob: await res.blob(), fileName };
+}
+
+/**
+ * Upload the catalog export, minified and gzipped: the ~11 MB file shrinks below 1 MB, which
+ * passes the default upload limit of reverse proxies such as Nginx.
+ */
+async function uploadCatalog(file: File): Promise<CatalogUploadResult> {
+  let json: unknown;
+  try {
+    json = JSON.parse(await file.text());
+  } catch {
+    throw new Error('Filen er ikke gyldig JSON. Last opp mytime-timekoder.json');
+  }
+  const compressed = await new Response(
+    new Blob([JSON.stringify(json)]).stream().pipeThrough(new CompressionStream('gzip')),
+  ).blob();
+  const form = new FormData();
+  form.append('file', new File([compressed], `${file.name}.gz`, { type: 'application/gzip' }));
+  return request<CatalogUploadResult>('PUT', '/api/catalog', form);
 }
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -102,11 +122,7 @@ export const api = {
   catalogProjects: () => request<CatalogProject[]>('GET', '/api/catalog/projects'),
   catalogTasks: (projectId: number) =>
     request<CatalogTask[]>('GET', `/api/catalog/projects/${projectId}/tasks`),
-  uploadCatalog: (file: File) => {
-    const form = new FormData();
-    form.append('file', file);
-    return request<CatalogUploadResult>('PUT', '/api/catalog', form);
-  },
+  uploadCatalog,
   markOnboarded: () => request<{ ok: true }>('POST', '/api/onboarded'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/settings', settings),
   importPreview: (weekStart: string, file: File) => {

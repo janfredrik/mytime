@@ -44,6 +44,78 @@ export const STANDARD_TIME_TYPES: readonly TimeType[] = [
     timeRange: true,
   },
   {
+    group: 'Overtid',
+    name: 'Overtime 50% Paid/Stand.-NO',
+    description: 'Weekday before 21:00. 50% paid to employee, invoiced to customer at standard price',
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime 50% Paid/1.5 Inv.-NO',
+    description: 'Weekday before 21:00. 50% paid to employee, invoiced to customer at 1.5 price',
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime 50% Balance/Stand.-NO',
+    description: 'Weekday before 21:00. 50% to overtime balance, invoiced to customer at standard price',
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime 50%Balance/1.5 Inv-NO',
+    description: 'Weekday before 21:00. 50% to overtime balance, invoiced to customer at 1.5 price',
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime 100% Paid/Stand.-NO',
+    description: 'Weekday after 21:00/weekend. 100% paid to employee, invoiced to customer at standard price',
+    timeRange: true,
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime 100% Paid/2 Inv.-NO',
+    description: 'Weekday after 21:00/weekend. 100% paid to employee, invoiced to customer at double price',
+    timeRange: true,
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime 100%Balance/Stand.-NO',
+    description: 'Weekday after 21:00/weekend. 100% to overtime balance, invoiced to customer at standard price',
+    timeRange: true,
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime 100%Balance/2 Inv.-NO',
+    description: 'Weekday after 21:00/weekend. 100% to overtime balance, invoiced to customer at double price',
+    timeRange: true,
+  },
+  {
+    group: 'Overtid',
+    name: 'Overtime Christmas/NY WTG2-NO',
+    description: 'WTG 2: Overtime on Christmas Eve and New Year’s Eve with 100% compensation, no price rule for invoicing',
+  },
+  { group: 'Overtid', name: 'Overtime unpaid -NO', description: 'Overtime unpaid' },
+  {
+    group: 'Overtid lærling og deltid',
+    name: 'Overtime Apprentice 50% -NO',
+    description: 'Overtime by apprentice with 50% compensation, no price rule for invoicing',
+  },
+  {
+    group: 'Overtid lærling og deltid',
+    name: 'Overtime Apprentice 100% -NO',
+    description: 'Overtime by apprentice with 100% compensation, no price rule for invoicing',
+    timeRange: true,
+  },
+  {
+    group: 'Overtid lærling og deltid',
+    name: 'Overtime Part time 50% -NO',
+    description: 'Overtime by part-time employee with 50% compensation, no price rule for invoicing',
+  },
+  {
+    group: 'Overtid lærling og deltid',
+    name: 'Overtime Part time 100% -NO',
+    description: 'Overtime by part-time employee with 100% compensation, no price rule for invoicing',
+    timeRange: true,
+  },
+  {
     group: 'Pålagt arbeid i hviletid',
     name: 'Mandat.work/rest period 50%-NO',
     description: 'Mandatory work in rest period 50% (weekday before 21)',
@@ -70,6 +142,9 @@ export const STANDARD_TIME_TYPES: readonly TimeType[] = [
     name: 'Hours only for invoice -NO',
     description: 'Hours only for customer invoice if need to invoice more than worked hours',
   },
+  { group: 'Reise og hvile', name: 'Travel time -NO', description: 'Travel time to balance according to special agreement' },
+  // One space on each side of the dash, as in the old MyTime.
+  { group: 'Reise og hvile', name: 'Resting after On-Call - NO', description: 'Resting after on-call' },
 ];
 
 /** Types a project, or one task in it, uses instead of the standard ones. */

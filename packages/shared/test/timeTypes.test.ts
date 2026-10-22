@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { defaultTimeTypeFor, findTimeType, timeTypeForLine, timeTypesFor } from '../src/timeTypes.js';
 
+describe('standard time types', () => {
+  it('offers overtime and marks the 100% types as needing a from/to time', () => {
+    expect(findTimeType('Overtime 100% Paid/2 Inv.-NO')).toMatchObject({ group: 'Overtid', timeRange: true });
+    expect(findTimeType('Overtime 50% Paid/1.5 Inv.-NO')?.timeRange).toBeUndefined();
+    expect(findTimeType('Overtime Part time 100% -NO')?.timeRange).toBe(true);
+    expect(findTimeType('Resting after On-Call - NO')?.group).toBe('Reise og hvile');
+  });
+});
+
 describe('project time types', () => {
   it('offers only the On Call types for OnCall247, whatever the task', () => {
     expect(timeTypesFor(' 245784 ', 'Konsulent').map((t) => t.name)).toEqual([

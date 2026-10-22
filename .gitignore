@@ -11,3 +11,6 @@ playwright-report/
 .claude/launch.json
 # Timekodekatalog eksportert fra mytime.tietoevry.com (interne kundedata, skal aldri inn i repoet)
 mytime-timekoder*
+mytime-presentasjon-stor.png
+mytime-presentasjon.png
+.DS_Store

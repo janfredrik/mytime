@@ -77,6 +77,31 @@ test('the comment button right after typing hours keeps them and opens on the co
   await expect(page.locator('[data-cell="0:2"]')).toHaveAttribute('title', 'Sprintplanlegging');
 });
 
+test('hours saved from the popover on an empty cell stay after leaving the cell', async ({ page }) => {
+  await login(page, '2026-40');
+  await page.getByRole('button', { name: 'Legg til linje' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Prosjektnummer').fill('266411');
+  await dialog.getByLabel('Prosjektnavn').fill('Internt');
+  await dialog.getByRole('button', { name: 'Legg til' }).click();
+
+  // Open the popover straight from the comment button, as on a phone, and enter hours there.
+  await page.getByRole('button', { name: /^Kommentar og detaljer/ }).first().click({ force: true });
+  const popover = page.getByRole('dialog', { name: /Detaljer/ });
+  await popover.getByLabel('Timer').fill('2');
+  await popover.getByRole('button', { name: 'Lagre' }).click();
+
+  // Focus is back on the cell; leaving it must not save its old, empty text over the hours.
+  const cell = page.locator('[data-cell="0:0"]');
+  await expect(cell).toBeFocused();
+  await expect(cell).toHaveValue('2');
+  await page.getByRole('heading', { name: /^Uke / }).click();
+  await expect(page.getByText('Lagret')).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('[data-cell="0:0"]')).toHaveValue('2');
+});
+
 test('import, export, copy to next week and flag edits after export', async ({ page }) => {
   await login(page, '2026-40');
   await page.getByRole('button', { name: 'Importer' }).first().click();

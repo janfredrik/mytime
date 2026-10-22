@@ -11,6 +11,7 @@ import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useRef, 
 import { api } from '../lib/api';
 import { CatalogPicker } from './CatalogPicker';
 import { Search } from './icons';
+import { TypePicker } from './TypePicker';
 import { Button, Dialog, Field, inputClass } from './ui';
 
 const DEFAULT_TYPE = 'Normal -NO';
@@ -422,7 +423,12 @@ export function LineEditor({
               {input('taskName', 'Oppgavenavn')}
             </div>
           )}
-          {input('type', 'Type', DEFAULT_TYPE)}
+          <TypePicker
+            value={value.type}
+            used={lists.type}
+            placeholder={DEFAULT_TYPE}
+            onChange={(v) => set('type', v)}
+          />
         </Section>
         {duplicate && (
           <p className="text-xs text-warning">En linje med samme prosjekt, oppgave og type finnes allerede denne uka.</p>

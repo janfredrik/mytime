@@ -4,3 +4,4 @@ export * from './flex.js';
 export * from './format.js';
 export * from './timecard.js';
 export * from './catalog.js';
+export * from './timeTypes.js';

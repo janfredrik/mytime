@@ -17,7 +17,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import type { User } from '../auth/plugin.js';
 import type { Db } from '../db/client.js';
-import { users } from '../db/schema.js';
+import { timecards, users } from '../db/schema.js';
 import { HttpError, badRequest } from '../errors.js';
 import * as catalog from '../services/catalog.js';
 import * as weeks from '../services/weeks.js';
@@ -94,6 +94,19 @@ export async function registerApi(
 
       api.post('/onboarded', async (req) => {
         await db.update(users).set({ onboardedAt: new Date() }).where(eq(users.id, user(req).id));
+        return { ok: true };
+      });
+
+      // Start over: drop every timecard and put settings back to defaults, so the welcome shows again.
+      api.post('/reset', async (req) => {
+        const id = user(req).id;
+        await db.transaction(async (tx) => {
+          await tx.delete(timecards).where(eq(timecards.userId, id));
+          await tx
+            .update(users)
+            .set({ dailyNormHours: 8, flexStartBalance: 0, flexStartDate: null, onboardedAt: null })
+            .where(eq(users.id, id));
+        });
         return { ok: true };
       });
 

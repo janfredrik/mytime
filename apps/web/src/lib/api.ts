@@ -124,6 +124,7 @@ export const api = {
     request<CatalogTask[]>('GET', `/api/catalog/projects/${projectId}/tasks`),
   uploadCatalog,
   markOnboarded: () => request<{ ok: true }>('POST', '/api/onboarded'),
+  resetAccount: () => request<{ ok: true }>('POST', '/api/reset'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/settings', settings),
   importPreview: (weekStart: string, file: File) => {
     const form = new FormData();

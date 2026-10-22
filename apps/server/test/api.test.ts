@@ -196,6 +196,19 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect((await alice.get('/api/me')).json().onboarded).toBe(true);
   });
 
+  it('resets everything and shows the welcome again', async () => {
+    const alice = await login('alice');
+    expect((await alice.send('PUT', `/api/weeks/${WEEK}`, { lines: [line({ [WEEK]: 7.5 })] })).statusCode).toBe(200);
+    await alice.send('PUT', '/api/settings', { dailyNormHours: 7.5, flexStartBalance: 19, flexStartDate: WEEK });
+    await alice.send('POST', '/api/onboarded');
+
+    expect((await alice.send('POST', '/api/reset')).statusCode).toBe(200);
+    const me = (await alice.get('/api/me')).json();
+    expect(me.onboarded).toBe(false);
+    expect(me.settings).toEqual({ dailyNormHours: 8, flexStartBalance: 0, flexStartDate: null });
+    expect((await alice.get(`/api/weeks/${WEEK}`)).json().lines).toEqual([]);
+  });
+
   it('lets admins replace the shared catalog that everyone can search', async () => {
     await db.execute(sql`truncate catalog_projects cascade`);
     const upload = (client: Awaited<ReturnType<typeof login>>, json: unknown, gzip = false) => {

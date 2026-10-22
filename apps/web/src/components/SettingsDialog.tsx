@@ -108,6 +108,64 @@ function CatalogUpload() {
   );
 }
 
+/** Delete every timecard and setting, then show the first-run welcome again. Asks before it does. */
+function ResetAccount({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.resetAccount();
+      onDone();
+      await qc.resetQueries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nullstillingen feilet');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-line pt-4">
+      <fieldset>
+        <legend className="mb-1 block text-xs font-medium text-ink-muted">Nullstill</legend>
+        {!confirming ? (
+          <>
+            <p className="mb-2 text-xs text-ink-subtle">
+              Slett alle timer og innstillinger og start på nytt med velkomstveiviseren.
+            </p>
+            <Button variant="danger" onClick={() => setConfirming(true)}>
+              Nullstill…
+            </Button>
+          </>
+        ) : (
+          <div
+            role="alert"
+            ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
+            className="rounded-lg border border-negative bg-negative-soft p-3"
+          >
+            <p className="text-sm text-ink">
+              Alle timelister, linjer og innstillinger slettes for godt. Dette kan ikke angres.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button variant="ghost" onClick={() => setConfirming(false)} disabled={busy} autoFocus>
+                Avbryt
+              </Button>
+              <Button variant="danger" onClick={() => void reset()} disabled={busy}>
+                {busy && <Spinner />} Ja, slett alt
+              </Button>
+            </div>
+          </div>
+        )}
+        {error && <p className="mt-2 text-sm text-negative">{error}</p>}
+      </fieldset>
+    </div>
+  );
+}
+
 export function SettingsDialog({
   open,
   settings,
@@ -212,6 +270,7 @@ export function SettingsDialog({
         </fieldset>
         {error && <p className="text-sm text-negative">{error}</p>}
         {isAdmin && <CatalogUpload />}
+        <ResetAccount key={String(open)} onDone={onClose} />
         <button type="submit" hidden />
       </form>
     </Dialog>

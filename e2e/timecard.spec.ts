@@ -102,6 +102,33 @@ test('hours saved from the popover on an empty cell stay after leaving the cell'
   await expect(page.locator('[data-cell="0:0"]')).toHaveValue('2');
 });
 
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('saving from the popover leaves the cell unfocused, so the keyboard stays down', async ({ page }) => {
+    await login(page, '2026-40');
+    await page.getByRole('button', { name: 'Legg til linje' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Prosjektnummer').fill('266411');
+    await dialog.getByLabel('Prosjektnavn').fill('Internt');
+    await dialog.getByRole('button', { name: 'Legg til' }).click();
+
+    await page.getByRole('button', { name: /^Kommentar og detaljer/ }).first().tap({ force: true });
+    const popover = page.getByRole('dialog', { name: /Detaljer/ });
+    await popover.getByLabel('Timer').fill('2');
+    await popover.getByRole('button', { name: 'Lagre' }).tap();
+
+    const cell = page.locator('[data-cell="0:0"]');
+    await expect(popover).toBeHidden();
+    await expect(cell).not.toBeFocused();
+    await expect(cell).toHaveValue('2');
+    await expect(page.getByText('Lagret')).toBeVisible();
+
+    await page.reload();
+    await expect(page.locator('[data-cell="0:0"]')).toHaveValue('2');
+  });
+});
+
 test('import, export, copy to next week and flag edits after export', async ({ page }) => {
   await login(page, '2026-40');
   await page.getByRole('button', { name: 'Importer' }).first().click();

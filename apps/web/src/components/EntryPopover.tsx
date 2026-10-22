@@ -1,5 +1,5 @@
 import { type Entry, TEXT_LIMITS, formatHours, parseHours } from '@mytime/shared';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { dayName, longDate } from '../lib/format';
 import { Button, Field, inputClass } from './ui';
@@ -40,11 +40,14 @@ export function EntryPopover({
     setPos({ top, left });
   }, [anchor]);
 
-  /** Close and hand focus back to the cell, so keyboard work continues where it left off. */
-  const dismiss = () => {
+  /**
+   * Close and hand focus back to the cell, so keyboard work continues where it left off.
+   * Not on touch screens, where focusing the cell would only bring the on-screen keyboard back up.
+   */
+  const dismiss = useCallback(() => {
     onClose();
-    anchor.focus();
-  };
+    if (!window.matchMedia('(pointer: coarse)').matches) anchor.focus();
+  }, [anchor, onClose]);
 
   useEffect(() => {
     // Clicking elsewhere closes without stealing focus from whatever was clicked.
@@ -54,8 +57,7 @@ export function EntryPopover({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
-        anchor.focus();
+        dismiss();
       }
     };
     document.addEventListener('mousedown', onDown);
@@ -64,7 +66,7 @@ export function EntryPopover({
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [anchor, onClose]);
+  }, [anchor, onClose, dismiss]);
 
   const save = () => {
     if (invalid) return;

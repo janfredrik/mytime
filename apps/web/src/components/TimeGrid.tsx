@@ -149,8 +149,13 @@ const HourCell = memo(function HourCell({
   const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
 
+  /** The saved value the text was last synced to. */
+  const synced = useRef(display);
   useEffect(() => {
-    if (!focused) setText(display);
+    // Also sync while focused when the saved value changes underneath, e.g. hours saved from the
+    // popover, which hands focus back to this cell. Otherwise leaving the cell would save the stale text.
+    if (!focused || display !== synced.current) setText(display);
+    synced.current = display;
   }, [display, focused]);
 
   const parsed = parseHours(text);

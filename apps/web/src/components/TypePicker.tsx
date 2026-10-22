@@ -1,20 +1,23 @@
-import { STANDARD_TIME_TYPES, TEXT_LIMITS, type TimeType, findTimeType } from '@mytime/shared';
+import { TEXT_LIMITS, type TimeType, findTimeType } from '@mytime/shared';
 import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { inputClass } from './ui';
 
 const OWN_GROUP = 'Andre typer du har brukt';
 
 /**
- * Type field: free text, with the standard types listed by group below it while focused.
+ * Type field: free text, with the given types listed by group below it while focused.
  * Types the user has used before that are not standard are listed last.
  */
 export function TypePicker({
   value,
+  types,
   used,
   placeholder,
   onChange,
 }: {
   value: string;
+  /** Known types to offer, e.g. the standard ones or the project's own. */
+  types: readonly TimeType[];
   /** Types from the user's earlier lines. */
   used: string[];
   placeholder?: string;
@@ -29,12 +32,12 @@ export function TypePicker({
 
   const all = useMemo<TimeType[]>(
     () => [
-      ...STANDARD_TIME_TYPES,
+      ...types,
       ...used
         .filter((name) => !findTimeType(name))
         .map((name) => ({ name, description: '', group: OWN_GROUP })),
     ],
-    [used],
+    [types, used],
   );
   const matches = useMemo(() => {
     if (!filtering) return all;

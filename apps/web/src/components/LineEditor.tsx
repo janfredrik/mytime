@@ -3,8 +3,11 @@ import {
   type CatalogTask,
   type LineDescriptor,
   TEXT_LIMITS,
+  defaultTimeTypeFor,
   joinNumberName,
   lineKey,
+  timeTypeForLine,
+  timeTypesFor,
 } from '@mytime/shared';
 import { useQuery } from '@tanstack/react-query';
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -151,7 +154,7 @@ export function LineEditor({
       projectNumber: p.number,
       projectName: p.name,
       ...(p.number === prev.projectNumber.trim() ? {} : { taskNumber: '', taskName: '' }),
-      type: prev.type.trim() || DEFAULT_TYPE,
+      type: timeTypeForLine(prev.type, p.number, p.number === prev.projectNumber.trim() ? prev.taskNumber : ''),
     }));
     // Next step: the task. Wait for the render that shows the project's tasks.
     requestAnimationFrame(() => taskRef.current?.focus());
@@ -162,7 +165,7 @@ export function LineEditor({
       ...prev,
       taskNumber: t.number,
       taskName: t.name,
-      type: prev.type.trim() || DEFAULT_TYPE,
+      type: timeTypeForLine(prev.type, prev.projectNumber, t.number),
     }));
   };
 
@@ -207,13 +210,18 @@ export function LineEditor({
         const hit = suggestions.find((s) => s.taskNumber === v && s.projectNumber === next.projectNumber);
         if (hit) next.taskName = hit.taskName;
       }
+      if (key === 'projectNumber' || key === 'taskNumber') {
+        next.type = timeTypeForLine(prev.type, next.projectNumber, next.taskNumber);
+      }
       return next;
     });
   };
 
   const trimmed = describe(value, (v) => v.trim());
-  if (!trimmed.type) trimmed.type = DEFAULT_TYPE;
-  const valid = trimmed.projectNumber !== '' || trimmed.projectName !== '';
+  if (!trimmed.type) trimmed.type = defaultTimeTypeFor(trimmed.projectNumber, trimmed.taskNumber);
+  // Some tasks have no default type, so the user has to pick one.
+  const typeMissing = trimmed.type === '';
+  const valid = (trimmed.projectNumber !== '' || trimmed.projectName !== '') && !typeMissing;
   const duplicate =
     existingKeys.has(lineKey(trimmed)) && (!initial || lineKey(initial) !== lineKey(trimmed));
 
@@ -425,10 +433,12 @@ export function LineEditor({
           )}
           <TypePicker
             value={value.type}
+            types={timeTypesFor(value.projectNumber, value.taskNumber)}
             used={lists.type}
-            placeholder={DEFAULT_TYPE}
+            placeholder={defaultTimeTypeFor(value.projectNumber, value.taskNumber) || 'Velg type'}
             onChange={(v) => set('type', v)}
           />
+          {typeMissing && <p className="text-xs text-ink-muted">Velg en type for denne oppgaven.</p>}
         </Section>
         {duplicate && (
           <p className="text-xs text-warning">En linje med samme prosjekt, oppgave og type finnes allerede denne uka.</p>

@@ -1,10 +1,11 @@
-import { type Settings, parseHours } from '@mytime/shared';
+import { type CatalogUploadResult, type Settings, parseHours } from '@mytime/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { type Density, useDensity } from '../lib/density';
 import { type ThemePref, useTheme } from '../lib/theme';
 import { Upload } from './icons';
+import { ShareCodesDialog } from './ShareCodesDialog';
 import { Button, Dialog, Field, Spinner, inputClass } from './ui';
 
 const themeOptions: { value: ThemePref; label: string }[] = [
@@ -60,6 +61,7 @@ function CatalogUpload() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [reviewing, setReviewing] = useState(false);
 
   const upload = async (file: File) => {
     setBusy(true);
@@ -75,6 +77,11 @@ function CatalogUpload() {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
     }
+  };
+
+  const shared = (res: CatalogUploadResult) => {
+    const fmt = (n: number) => n.toLocaleString('nb-NO');
+    setResult({ ok: true, text: `Delte ${fmt(res.projects)} nye prosjekter og ${fmt(res.tasks)} nye oppgaver med alle.` });
   };
 
   return (
@@ -98,6 +105,14 @@ function CatalogUpload() {
         <Button onClick={() => fileRef.current?.click()} disabled={busy}>
           {busy ? <Spinner /> : <Upload />} Last opp katalog
         </Button>
+        <p className="mt-3 mb-2 text-xs text-ink-subtle">
+          Se timekoder som brukes i timelistene, men mangler i katalogen, og velg hvilke som skal bli
+          tilgjengelige for alle.
+        </p>
+        <Button onClick={() => setReviewing(true)} disabled={busy}>
+          Del timekoder i bruk…
+        </Button>
+        <ShareCodesDialog open={reviewing} onClose={() => setReviewing(false)} onShared={shared} />
         {result && (
           <p role="status" className={`mt-2 text-sm ${result.ok ? 'text-ink-muted' : 'text-negative'}`}>
             {result.text}

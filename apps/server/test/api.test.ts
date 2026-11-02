@@ -270,6 +270,88 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     await db.execute(sql`truncate catalog_projects cascade`);
   });
 
+  it('lets admins review and share the time codes in use that the catalog lacks', async () => {
+    await db.execute(sql`truncate catalog_projects, shared_projects cascade`);
+    await db.execute(sql`
+      insert into catalog_projects (id, number, name) values (900001, '100001', 'Kunde A');
+      insert into catalog_tasks (project_id, id, number, name) values (900001, 1, '01', 'Drift');
+    `);
+    const used = (projectNumber: string, projectName: string, taskNumber: string, taskName: string) => ({
+      ...line(),
+      projectNumber,
+      projectName,
+      taskNumber,
+      taskName,
+    });
+
+    const alice = await login('alice');
+    const saved = await alice.send('PUT', `/api/weeks/${WEEK}`, {
+      lines: [
+        used('100001', 'Kunde A', '01', 'Drift'),
+        used('100001', 'Kunde A', '02', 'Utvikling'),
+        used(' 200001 ', '', '1', 'Møter'),
+        used('', 'Bare navn', '', ''),
+      ],
+    });
+    expect(saved.statusCode).toBe(200);
+    const bob = await login('bob');
+    await bob.send('PUT', `/api/weeks/${WEEK}`, { lines: [used('200001', 'Kunde C', '1', 'Annet')] });
+
+    expect((await alice.get('/api/catalog/share')).statusCode).toBe(403);
+    expect((await alice.send('POST', '/api/catalog/share', { projects: [] })).statusCode).toBe(403);
+    // Nothing is shared until an admin asks for it.
+    expect((await bob.get('/api/catalog/projects')).json()).toHaveLength(1);
+
+    const admin = await login('admin');
+    const candidates = (await admin.get('/api/catalog/share')).json();
+    expect(candidates).toEqual([
+      {
+        number: '100001',
+        name: 'Kunde A',
+        users: 1,
+        available: true,
+        tasks: [{ number: '02', name: 'Utvikling', users: 1 }],
+      },
+      {
+        number: '200001',
+        name: 'Kunde C',
+        users: 2,
+        available: false,
+        tasks: [{ number: '1', name: expect.any(String), users: 2 }],
+      },
+    ]);
+
+    // Share one task under the catalog project, and the other project without its task.
+    expect((await admin.send('POST', '/api/catalog/share', { projects: [] })).statusCode).toBe(400);
+    const res = await admin.send('POST', '/api/catalog/share', {
+      projects: [
+        { number: '100001', name: 'Kunde A', tasks: [{ number: '02', name: 'Utvikling' }] },
+        { number: '200001', name: 'Kunde C', tasks: [] },
+      ],
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ projects: 1, tasks: 1 });
+    // Only the task left out is still a candidate.
+    expect((await admin.get('/api/catalog/share')).json()).toEqual([
+      { number: '200001', name: 'Kunde C', users: 2, available: true, tasks: [{ number: '1', name: expect.any(String), users: 2 }] },
+    ]);
+
+    const projects = (await bob.get('/api/catalog/projects')).json();
+    expect(projects).toEqual([
+      { id: 900001, number: '100001', name: 'Kunde A' },
+      { id: expect.any(Number), number: '200001', name: 'Kunde C', shared: true },
+    ]);
+    expect(projects[1].id).toBeLessThan(0);
+    expect((await bob.get('/api/catalog/projects/900001/tasks')).json()).toEqual([
+      { id: 1, number: '01', name: 'Drift', description: '' },
+      { id: expect.any(Number), number: '02', name: 'Utvikling', description: '', shared: true },
+    ]);
+    expect((await bob.get(`/api/catalog/projects/${projects[1].id}/tasks`)).json()).toEqual([]);
+
+    // The e2e tests share this database and expect the free-text fields of an empty catalog.
+    await db.execute(sql`truncate catalog_projects, shared_projects cascade`);
+  });
+
   it('logs out', async () => {
     const alice = await login('alice');
     const res = await app.inject({ method: 'GET', url: '/auth/logout', headers: alice.headers });

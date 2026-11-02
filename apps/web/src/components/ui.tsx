@@ -74,8 +74,12 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      // A dialog opened from inside this one sends its close and cancel events here too; ignore them.
+      onClose={(e) => {
+        if (e.target === ref.current) onClose();
+      }}
       onCancel={(e) => {
+        if (e.target !== ref.current) return;
         e.preventDefault();
         onClose();
       }}

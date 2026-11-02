@@ -3,12 +3,14 @@ import {
   type ImportPreview,
   catalogUploadSchema,
   type Me,
+  type ShareCandidate,
   importCommitSchema,
   isValidISODate,
   isWeekStart,
   lineTotal,
   saveWeekSchema,
   settingsSchema,
+  shareCodesSchema,
   todayISO,
 } from '@mytime/shared';
 import { eq } from 'drizzle-orm';
@@ -126,14 +128,16 @@ export async function registerApi(
 
       api.get('/catalog/projects/:projectId/tasks', async (req) => {
         const projectId = Number((req.params as { projectId: string }).projectId);
-        if (!Number.isSafeInteger(projectId) || projectId <= 0) throw badRequest('Ugyldig prosjekt');
+        if (!Number.isSafeInteger(projectId) || projectId === 0) throw badRequest('Ugyldig prosjekt');
         return catalog.listTasks(db, projectId);
       });
 
+      const requireAdmin = (req: FastifyRequest, message: string) => {
+        if (!toMe(user(req), adminEmails).isAdmin) throw new HttpError(403, message);
+      };
+
       api.put('/catalog', async (req): Promise<CatalogUploadResult> => {
-        if (!toMe(user(req), adminEmails).isAdmin) {
-          throw new HttpError(403, 'Bare administratorer kan laste opp katalogen');
-        }
+        requireAdmin(req, 'Bare administratorer kan laste opp katalogen');
         const file = await req.file({ limits: { fileSize: MAX_CATALOG_BYTES } });
         if (!file) throw badRequest('Mangler fil');
         let buffer = await file.toBuffer();
@@ -152,6 +156,16 @@ export async function registerApi(
           throw badRequest('Filen er ikke gyldig JSON. Last opp mytime-timekoder.json');
         }
         return catalog.replaceCatalog(db, parse(catalogUploadSchema, json));
+      });
+
+      api.get('/catalog/share', async (req): Promise<ShareCandidate[]> => {
+        requireAdmin(req, 'Bare administratorer kan dele timekoder');
+        return catalog.shareCandidates(db);
+      });
+
+      api.post('/catalog/share', async (req): Promise<CatalogUploadResult> => {
+        requireAdmin(req, 'Bare administratorer kan dele timekoder');
+        return catalog.shareCodes(db, parse(shareCodesSchema, req.body));
       });
 
       api.get('/weeks/:weekStart', async (req) => weeks.getWeek(db, user(req).id, weekParam(req)));

@@ -30,12 +30,20 @@ const EMPTY: LineDescriptor = {
 /** The catalog changes rarely; one fetch per hour is plenty. */
 export const CATALOG_STALE_MS = 60 * 60 * 1000;
 
+/** Marks a code someone has used in mytime that the catalog lacks. */
+const SharedTag = () => (
+  <span className="ml-auto shrink-0 text-xs text-ink-subtle" title="Brukt i mytime, men finnes ikke i katalogen">
+    delt
+  </span>
+);
+
 const projectSearch = (p: CatalogProject) => `${p.number} ${p.name}`;
 const projectKey = (p: CatalogProject) => p.id;
 const renderProject = (p: CatalogProject) => (
   <div className="flex items-baseline gap-2">
     <span className="tabular shrink-0 text-xs text-ink-subtle">{p.number}</span>
     <span className="truncate">{p.name}</span>
+    {p.shared && <SharedTag />}
   </div>
 );
 
@@ -43,7 +51,10 @@ const taskSearch = (t: CatalogTask) => `${t.number} ${t.name} ${t.description}`;
 const taskKey = (t: CatalogTask) => t.id;
 const renderTask = (t: CatalogTask) => (
   <>
-    <div className="truncate">{joinNumberName(t.number, t.name)}</div>
+    <div className="flex items-baseline gap-2">
+      <span className="truncate">{joinNumberName(t.number, t.name)}</span>
+      {t.shared && <SharedTag />}
+    </div>
     {t.description && t.description !== t.name && (
       <div className="truncate text-xs text-ink-muted">{t.description}</div>
     )}
@@ -383,7 +394,7 @@ export function LineEditor({
           </div>
         )}
 
-        <Section title="Alle prosjekter" hint="Søk i hele prosjektkatalogen" show={twoWays}>
+        <Section title="Alle prosjekter" hint="Søk i prosjektkatalogen og delte timekoder" show={twoWays}>
           {hasCatalog && (
             <div className="space-y-3">
               <CatalogPicker

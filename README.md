@@ -165,6 +165,12 @@ kjøres i nettleserkonsollen på dagens løsning: én oppføring per prosjekt (`
 opplasting erstatter hele katalogen. Oppgavetittelen deles ved første ` - ` i oppgavenummer og -navn
 (`1.1.1 - Maintenance Work` → `1.1.1` og `Maintenance Work`).
 
+Under **Innstillinger → Del timekoder i bruk…** ser en administrator timekodene som står i noens
+timeliste, men mangler i katalogen, med hvor mange som bruker hver kode (ikke hvem). Kodene som krysses
+av blir valgbare for alle, merket «delt». De lagres i egne tabeller, så en ny katalogopplasting lar dem
+stå; finnes et delt prosjekt senere i katalogen, vises katalogens versjon. Delte koder kan foreløpig
+bare fjernes direkte i databasen.
+
 Katalogen inneholder interne kunde- og prosjektnavn. Den lagres bare i databasen, og
 `mytime-timekoder*` ligger i `.gitignore` slik at filen ikke havner i repoet. Filen kan være rundt
 10 MB, så reverse proxyen må tillate opplastinger av den størrelsen (f.eks. `client_max_body_size`

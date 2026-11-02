@@ -27,7 +27,7 @@ A personal-scale companion to the official system, not a replacement for it. Its
 
 ## Capabilities and Constraints
 
-- Each user sees only their own hours. There is no shared project catalog: lines are entered freely or come from import.
+- Each user sees only their own hours. Lines are picked from a shared time code catalog (uploaded by an admin), entered freely or imported. An admin can review codes in use that the catalog lacks and share the chosen ones with everyone, without showing who used them.
 - Daily norm is 8 h; weekends and Norwegian public holidays have norm 0. Flex shown per day and as a running total balance.
 - Autosave; no explicit save step.
 - The export format must stay identical to the official system's format; it is a hard compatibility constraint.

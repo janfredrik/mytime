@@ -124,3 +124,26 @@ export const catalogTasks = pgTable(
   },
   (t) => [primaryKey({ columns: [t.projectId, t.id] })],
 );
+
+/**
+ * Time codes people have used on their timecards, shared with everyone next to the catalog when
+ * an admin asks for it. Kept apart from the catalog tables so a new catalog upload leaves them.
+ */
+export const sharedProjects = pgTable('shared_projects', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  number: text('number').notNull().unique(),
+  name: text('name').notNull().default(''),
+});
+
+export const sharedTasks = pgTable(
+  'shared_tasks',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => sharedProjects.id, { onDelete: 'cascade' }),
+    number: text('number').notNull(),
+    name: text('name').notNull().default(''),
+  },
+  (t) => [unique('shared_tasks_project_number').on(t.projectId, t.number)],
+);

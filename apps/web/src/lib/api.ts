@@ -10,6 +10,8 @@ import type {
   LineDescriptor,
   Me,
   Settings,
+  ShareCandidate,
+  ShareCodes,
   Week,
 } from '@mytime/shared';
 
@@ -123,6 +125,8 @@ export const api = {
   catalogTasks: (projectId: number) =>
     request<CatalogTask[]>('GET', `/api/catalog/projects/${projectId}/tasks`),
   uploadCatalog,
+  shareCandidates: () => request<ShareCandidate[]>('GET', '/api/catalog/share'),
+  shareCodes: (codes: ShareCodes) => request<CatalogUploadResult>('POST', '/api/catalog/share', codes),
   markOnboarded: () => request<{ ok: true }>('POST', '/api/onboarded'),
   resetAccount: () => request<{ ok: true }>('POST', '/api/reset'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/settings', settings),

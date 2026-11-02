@@ -1,10 +1,15 @@
 import { z } from 'zod';
+import { TEXT_LIMITS } from './timecard.js';
 
-/** Project from the shared time code catalog. `id` is the project's id in the existing system. */
+/**
+ * Project from the shared time code catalog. `id` is the project's id in the existing system, or
+ * negative for a code someone has used that the catalog lacks, shared by an admin (`shared`).
+ */
 export interface CatalogProject {
   id: number;
   number: string;
   name: string;
+  shared?: boolean;
 }
 
 export interface CatalogTask {
@@ -12,6 +17,7 @@ export interface CatalogTask {
   number: string;
   name: string;
   description: string;
+  shared?: boolean;
 }
 
 /**
@@ -42,6 +48,45 @@ export interface CatalogUploadResult {
   projects: number;
   tasks: number;
 }
+
+/** A time code in use on someone's timecard that nobody can pick yet. `users` counts the people using it. */
+export interface ShareCandidateTask {
+  number: string;
+  name: string;
+  users: number;
+}
+
+export interface ShareCandidate {
+  number: string;
+  name: string;
+  users: number;
+  /** The project can be picked already (catalog or shared); only its tasks are new. */
+  available: boolean;
+  tasks: ShareCandidateTask[];
+}
+
+/** The codes an admin picked to share. A task needs its project, so tasks travel inside it. */
+export const shareCodesSchema = z.object({
+  projects: z
+    .array(
+      z.object({
+        number: z.string().trim().min(1).max(TEXT_LIMITS.projectNumber),
+        name: z.string().trim().max(TEXT_LIMITS.projectName).default(''),
+        tasks: z
+          .array(
+            z.object({
+              number: z.string().trim().min(1).max(TEXT_LIMITS.taskNumber),
+              name: z.string().trim().max(TEXT_LIMITS.taskName).default(''),
+            }),
+          )
+          .max(10_000)
+          .default([]),
+      }),
+    )
+    .min(1, 'Velg minst én timekode')
+    .max(20_000),
+});
+export type ShareCodes = z.infer<typeof shareCodesSchema>;
 
 /** "1.1.1 - Maintenance Work" → number "1.1.1", name "Maintenance Work". */
 export function splitTaskTitle(title: string): { number: string; name: string } {

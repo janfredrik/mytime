@@ -21,6 +21,7 @@ export function EntryPopover({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const hoursRef = useRef<HTMLInputElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const [hoursText, setHoursText] = useState(entry.hours ? formatHours(entry.hours) : '');
   const [comment, setComment] = useState(entry.comment);
@@ -30,14 +31,24 @@ export function EntryPopover({
   const invalid = hoursText.trim() !== '' && (hours === null || hours < 0 || hours > 24);
 
   useLayoutEffect(() => {
-    const rect = anchor.getBoundingClientRect();
-    const width = 320;
-    const height = ref.current?.offsetHeight ?? 300;
-    let left = Math.min(rect.left, window.innerWidth - width - 12);
-    left = Math.max(12, left);
-    let top = rect.bottom + 6;
-    if (top + height > window.innerHeight - 12) top = Math.max(12, rect.top - height - 6);
-    setPos({ top, left });
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      const width = 320;
+      const height = ref.current?.offsetHeight ?? 300;
+      let left = Math.min(rect.left, window.innerWidth - width - 12);
+      left = Math.max(12, left);
+      let top = rect.bottom + 6;
+      if (top + height > window.innerHeight - 12) top = Math.max(12, rect.top - height - 6);
+      setPos({ top, left });
+    };
+    place();
+    // Follow the cell when the page or the grid's own sideways scroll moves it.
+    window.addEventListener('scroll', place, { capture: true, passive: true });
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, { capture: true });
+      window.removeEventListener('resize', place);
+    };
   }, [anchor]);
 
   /**
@@ -49,10 +60,32 @@ export function EntryPopover({
     if (!window.matchMedia('(pointer: coarse)').matches) anchor.focus();
   }, [anchor, onClose]);
 
+  const changed =
+    (hours ?? 0) !== entry.hours ||
+    comment.trim() !== entry.comment ||
+    timeFrom !== entry.timeFrom ||
+    timeTo !== entry.timeTo;
+
+  /**
+   * Clicking elsewhere keeps what was typed, like the rest of the grid, and closes without stealing
+   * focus from whatever was clicked. Invalid hours keep the popover open so nothing is lost.
+   */
+  const leave = useRef<() => boolean>(() => true);
+  leave.current = () => {
+    if (invalid) return false;
+    if (changed) onSave({ hours: hours ?? 0, comment: comment.trim(), timeFrom, timeTo });
+    onClose();
+    return true;
+  };
+
   useEffect(() => {
-    // Clicking elsewhere closes without stealing focus from whatever was clicked.
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node) && !anchor.contains(e.target as Node)) onClose();
+      if (!ref.current || ref.current.contains(e.target as Node) || anchor.contains(e.target as Node)) return;
+      if (!leave.current()) {
+        // Keep the focus here rather than on whatever was clicked, so the hours can be corrected.
+        e.preventDefault();
+        hoursRef.current?.focus();
+      }
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -110,6 +143,7 @@ export function EntryPopover({
       <div className="space-y-3">
         <Field label="Timer">
           <input
+            ref={hoursRef}
             // With hours already in place, the reason to open the popover is the comment.
             autoFocus={!entry.hours}
             inputMode="decimal"

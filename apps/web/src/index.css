@@ -56,7 +56,8 @@
   --color-negative-ink: #2a1206;
   --color-warning: #facc15;
   --color-warning-soft: #2e260b;
-  --color-today: #1f1d12;
+  /* The surface with a trace of the accent, so today matches its teal heading. */
+  --color-today: #16272c;
   --color-weekend: #12181e;
 }
 

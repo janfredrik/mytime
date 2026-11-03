@@ -123,14 +123,20 @@ function CatalogUpload() {
   );
 }
 
-/** Delete every timecard and setting, then show the first-run welcome again. Asks before it does. */
+const RESET_WORD = 'NULLSTILL';
+
+/** Delete every timecard and setting, then show the first-run welcome again. The user must type RESET_WORD first. */
 function ResetAccount({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
   const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const confirmed = typed.trim().toUpperCase() === RESET_WORD;
+
   const reset = async () => {
+    if (!confirmed) return;
     setBusy(true);
     setError(null);
     try {
@@ -165,11 +171,38 @@ function ResetAccount({ onDone }: { onDone: () => void }) {
             <p className="text-sm text-ink">
               Alle timelister, linjer og innstillinger slettes for godt. Dette kan ikke angres.
             </p>
+            <div className="mt-3">
+              <Field label={`Skriv ${RESET_WORD} for å bekrefte`}>
+                <input
+                  className={inputClass}
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void reset();
+                    }
+                  }}
+                  placeholder={RESET_WORD}
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={busy}
+                  autoFocus
+                />
+              </Field>
+            </div>
             <div className="mt-3 flex gap-2">
-              <Button variant="ghost" onClick={() => setConfirming(false)} disabled={busy} autoFocus>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setConfirming(false);
+                  setTyped('');
+                }}
+                disabled={busy}
+              >
                 Avbryt
               </Button>
-              <Button variant="danger" onClick={() => void reset()} disabled={busy}>
+              <Button variant="danger" onClick={() => void reset()} disabled={busy || !confirmed}>
                 {busy && <Spinner />} Ja, slett alt
               </Button>
             </div>

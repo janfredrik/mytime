@@ -45,6 +45,13 @@ export async function findSessionUser(db: Db, token: string) {
   return row;
 }
 
+/** Moves a session's expiry to `ttlMs` from now. `id` is the stored hash, as returned by findSessionUser. */
+export async function renewSession(db: Db, id: string, ttlMs: number): Promise<Date> {
+  const expiresAt = new Date(Date.now() + ttlMs);
+  await db.update(sessions).set({ expiresAt }).where(eq(sessions.id, id));
+  return expiresAt;
+}
+
 export async function deleteSession(db: Db, token: string) {
   const [row] = await db.delete(sessions).where(eq(sessions.id, hash(token))).returning();
   return row;

@@ -12,6 +12,7 @@ import {
   createSession,
   deleteSession,
   findSessionUser,
+  renewSession,
 } from './sessions.js';
 
 export type User = typeof users.$inferSelect;
@@ -23,6 +24,8 @@ declare module 'fastify' {
 }
 
 const LOGIN_TTL_MS = 10 * 60 * 1000;
+/** A session in use is extended to the full TTL, at most this often, to spare a write per request. */
+const RENEW_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const CSRF_HEADER = 'x-requested-with';
 
 /** Only allow relative, same-origin paths as post-login targets. */
@@ -83,11 +86,17 @@ export async function registerAuth(
     return row!;
   };
 
-  app.addHook('onRequest', async (req) => {
+  app.addHook('onRequest', async (req, reply) => {
     const token = readCookie(req, SESSION_COOKIE);
     if (!token) return;
     const found = await findSessionUser(db, token);
-    if (found) req.user = found.user;
+    if (!found) return;
+    req.user = found.user;
+    // Sliding expiry: someone who keeps using the app is never signed out in the middle of it.
+    if (found.session.expiresAt.getTime() < Date.now() + ttlMs - RENEW_INTERVAL_MS) {
+      await renewSession(db, found.session.id, ttlMs);
+      reply.setCookie(SESSION_COOKIE, token, { ...cookieBase, path: '/', maxAge: ttlMs / 1000 });
+    }
   });
 
   app.get('/auth/login', async (req, reply) => {

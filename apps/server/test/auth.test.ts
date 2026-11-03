@@ -5,6 +5,7 @@ import { buildApp } from '../src/app.js';
 import type { OidcProvider } from '../src/auth/oidc.js';
 import { loadConfig } from '../src/config.js';
 import { createDb, runMigrations } from '../src/db/client.js';
+import { sessions } from '../src/db/schema.js';
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL;
 const TENANT = '11111111-1111-1111-1111-111111111111';
@@ -97,6 +98,34 @@ describe.skipIf(!DATABASE_URL)('Entra login (BFF)', () => {
       headers: { cookie: `mytime_session=${session.value}` },
     });
     expect(logout.headers.location).toContain('post_logout_redirect_uri=https://mytime.x99.no/');
+  });
+
+  it('extends a session that is in use, at most once a day', async () => {
+    claims = { tid: TENANT, oid: 'user-1', name: 'Kari Nordmann', preferred_username: 'kari@x99.no' };
+    const { state, cookie } = await startLogin();
+    const login = await app.inject({ method: 'GET', url: `/auth/callback?code=abc&state=${state}`, headers: { cookie } });
+    const session = `mytime_session=${login.cookies.find((c) => c.name === 'mytime_session')!.value}`;
+    const expiresAt = async () => (await db.select({ at: sessions.expiresAt }).from(sessions))[0]!.at;
+
+    // A fresh session is left alone: no write and no new cookie.
+    const before = await expiresAt();
+    const fresh = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: session } });
+    expect(fresh.statusCode).toBe(200);
+    expect(fresh.cookies.find((c) => c.name === 'mytime_session')).toBeUndefined();
+    expect(await expiresAt()).toEqual(before);
+
+    // One day left: using the app moves the expiry back to the full 14 days.
+    await db.execute(sql`update sessions set expires_at = now() + interval '1 day'`);
+    const used = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: session } });
+    expect(used.statusCode).toBe(200);
+    const renewed = used.cookies.find((c) => c.name === 'mytime_session')!;
+    expect(renewed.maxAge).toBe(14 * 86_400);
+    expect((await expiresAt()).getTime()).toBeGreaterThan(Date.now() + 13.9 * 86_400_000);
+
+    // An expired session is not brought back.
+    await db.execute(sql`update sessions set expires_at = now() - interval '1 minute'`);
+    const expired = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: session } });
+    expect(expired.statusCode).toBe(401);
   });
 
   it('rejects users from other tenants', async () => {

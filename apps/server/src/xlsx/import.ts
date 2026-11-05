@@ -4,6 +4,8 @@ import {
   type Line,
   type LineDescriptor,
   MAX_HOURS_PER_ENTRY,
+  MYTIME_COMMENT_MAX,
+  commentTooLong,
   compareISODate,
   formatISODate,
   isValidISODate,
@@ -180,6 +182,7 @@ export async function parseTimecardXlsx(
   const undatedWeek = datedWeeks.size === 1 ? [...datedWeeks][0]! : fallbackWeekStart;
 
   const weeks = new Map<string, Map<string, Line>>();
+  const flagged = new Set<Line['entries'][number]>();
   for (const r of raw) {
     const weekStart = r.date ? weekStartOf(r.date) : undatedWeek;
     let lines = weeks.get(weekStart);
@@ -189,21 +192,30 @@ export async function parseTimecardXlsx(
     if (!line) lines.set(key, (line = { id: randomUUID(), ...r.descriptor, entries: [] }));
     if (!r.date) continue;
 
-    const existing = line.entries.find((e) => e.date === r.date);
-    if (existing) {
-      existing.hours = round2(existing.hours + (r.hours ?? 0));
-      existing.comment = [existing.comment, r.comment].filter(Boolean).join('\n');
+    let entry = line.entries.find((e) => e.date === r.date);
+    if (entry) {
+      entry.hours = round2(entry.hours + (r.hours ?? 0));
+      entry.comment = [entry.comment, r.comment].filter(Boolean).join('\n');
       warnings.push({
         row: r.row,
         message: `Flere rader for samme linje og dato (${r.date}) – timene er slått sammen`,
       });
     } else {
-      line.entries.push({
+      entry = {
         date: r.date,
         hours: round2(r.hours ?? 0),
         comment: r.comment,
         timeFrom: r.timeFrom,
         timeTo: r.timeTo,
+      };
+      line.entries.push(entry);
+    }
+    // Kept as is, but flagged: it has to be shortened before the week can be exported.
+    if (commentTooLong(entry.comment) && !flagged.has(entry)) {
+      flagged.add(entry);
+      warnings.push({
+        row: r.row,
+        message: `Kommentaren (${r.date}) er ${entry.comment.length} tegn. MyTime tillater ${MYTIME_COMMENT_MAX}, så den må kortes ned før eksport`,
       });
     }
   }

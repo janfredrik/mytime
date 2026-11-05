@@ -143,6 +143,19 @@ describe('tolerant import', () => {
     ]);
   });
 
+  it('keeps comments longer than MyTime allows, with one warning per entry', async () => {
+    const file = await workbook([
+      ['1', 'P', '1', 'T', 'N', '2026-09-28', 1, 'a'.repeat(241)],
+      ['1', 'P', '1', 'T', 'N', '2026-09-29', 1, 'b'.repeat(200)],
+      ['1', 'P', '1', 'T', 'N', '2026-09-29', 1, 'c'.repeat(100)],
+      ['1', 'P', '1', 'T', 'N', '2026-09-30', 1, 'd'.repeat(240)],
+    ]);
+    const result = await parseTimecardXlsx(file, WEEK);
+    const long = result.warnings.filter((w) => w.message.includes('MyTime tillater 240'));
+    expect(long.map((w) => w.row)).toEqual([2, 4]);
+    expect(result.weeks[0]!.lines[0]!.entries.map((e) => e.comment.length)).toEqual([241, 301, 240]);
+  });
+
   it('splits multiple weeks and puts undated lines in the fallback week', async () => {
     const file = await workbook([
       ['1', 'P', '1', 'T', 'N', '2026-09-28', 1],

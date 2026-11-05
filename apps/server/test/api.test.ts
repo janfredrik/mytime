@@ -78,6 +78,24 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  it('keeps comments longer than MyTime allows but refuses to export them', async () => {
+    const alice = await login('alice');
+    const l = line({ '2026-09-28': 7.5 });
+    l.entries[0]!.comment = 'x'.repeat(241);
+    const saved = await alice.send('PUT', `/api/weeks/${WEEK}`, { lines: [l] });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().lines[0].entries[0].comment).toHaveLength(241);
+
+    const refused = await alice.get(`/api/weeks/${WEEK}/export`);
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().message ?? refused.body).toMatch(/240 tegn/);
+    expect((await alice.get(`/api/weeks/${WEEK}`)).json().status).toBe('draft');
+
+    l.entries[0]!.comment = 'x'.repeat(240);
+    await alice.send('PUT', `/api/weeks/${WEEK}`, { lines: [l] });
+    expect((await alice.get(`/api/weeks/${WEEK}/export`)).statusCode).toBe(200);
+  });
+
   it('saves, exports and marks a week as changed after later edits', async () => {
     const alice = await login('alice');
     const empty = await alice.get(`/api/weeks/${WEEK}`);

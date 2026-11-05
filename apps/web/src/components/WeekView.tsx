@@ -10,6 +10,8 @@ import {
   isoWeekOf,
   joinNumberName,
   lineKey,
+  longCommentEntries,
+  MYTIME_COMMENT_MAX,
   normForDate,
   round2,
   weekDates,
@@ -297,17 +299,24 @@ export function WeekView({
   };
 
   const status = meta?.status ?? 'draft';
-  const canExport = !!lines && lines.length > 0 && weekTotal > 0;
+  const longComments = lines ? longCommentEntries(lines).length : 0;
+  const hasHours = !!lines && lines.length > 0 && weekTotal > 0;
+  const canExport = hasHours && longComments === 0;
+  const longCommentNote = `${longComments === 1 ? 'Én kommentar er' : `${longComments} kommentarer er`} lengre enn ${MYTIME_COMMENT_MAX} tegn. Kort ned de røde før eksport`;
   const exportLabel =
     status === 'exported' ? 'Eksporter på nytt' : status === 'changed' ? `Eksporter uke ${week} på nytt` : `Eksporter uke ${week}`;
   const exportNote =
-    status === 'exported' && meta?.lastExportedAt
-      ? `${dateTime(meta.lastExportedAt)}. Endringer etter dette krever ny eksport`
-      : status === 'changed' && meta?.lastExportedAt
-        ? `Sist eksportert ${dateTime(meta.lastExportedAt)}. Filen er utdatert`
-        : weekTotal > 0
-          ? 'Eksporter og last opp i timesystemet'
-          : 'Ingen timer å eksportere ennå';
+    hasHours && longComments > 0 ? (
+      <span className="text-negative">{longCommentNote}</span>
+    ) : status === 'exported' && meta?.lastExportedAt ? (
+      `${dateTime(meta.lastExportedAt)}. Endringer etter dette krever ny eksport`
+    ) : status === 'changed' && meta?.lastExportedAt ? (
+      `Sist eksportert ${dateTime(meta.lastExportedAt)}. Filen er utdatert`
+    ) : weekTotal > 0 ? (
+      'Eksporter og last opp i timesystemet'
+    ) : (
+      'Ingen timer å eksportere ennå'
+    );
 
   return (
     <div className="space-y-5">
@@ -428,7 +437,7 @@ export function WeekView({
             variant={status === 'exported' ? 'secondary' : 'primary'}
             onClick={exportWeek}
             disabled={!canExport || busy !== null}
-            title={canExport ? undefined : 'Ingen timer å eksportere'}
+            title={canExport ? undefined : hasHours ? longCommentNote : 'Ingen timer å eksportere'}
           >
             {busy === 'export' ? <Spinner /> : <Download />} {exportLabel}
           </Button>

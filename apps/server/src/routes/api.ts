@@ -7,7 +7,9 @@ import {
   importCommitSchema,
   isValidISODate,
   isWeekStart,
+  MYTIME_COMMENT_MAX,
   lineTotal,
+  longCommentEntries,
   saveWeekSchema,
   settingsSchema,
   shareCodesSchema,
@@ -183,6 +185,13 @@ export async function registerApi(
       api.get('/weeks/:weekStart/export', async (req, reply) => {
         const weekStart = weekParam(req);
         const week = await weeks.getWeek(db, user(req).id, weekStart);
+        // MyTime allows at most MYTIME_COMMENT_MAX characters; entries from before the limit may be longer.
+        const tooLong = longCommentEntries(week.lines).length;
+        if (tooLong > 0) {
+          throw badRequest(
+            `${tooLong === 1 ? 'Én kommentar er' : `${tooLong} kommentarer er`} lengre enn ${MYTIME_COMMENT_MAX} tegn. Kort ned før eksport.`,
+          );
+        }
         const now = new Date();
         const file = buildTimecardXlsx(week.lines, now);
         await weeks.markExported(db, user(req).id, weekStart);

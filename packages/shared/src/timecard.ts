@@ -15,6 +15,7 @@ export const TEXT_LIMITS = {
   taskNumber: 100,
   taskName: 300,
   type: 200,
+  /** What can be stored. New text is held to MYTIME_COMMENT_MAX; older entries may be longer. */
   comment: 4000,
   time: 20,
 } as const;
@@ -165,6 +166,21 @@ export function hoursByDate(lines: readonly Line[]): Map<string, number> {
 /** Hours per date from the lines that count towards flex. */
 export function flexHoursByDate(lines: readonly Line[]): Map<string, number> {
   return hoursByDate(lines.filter((l) => countsTowardsFlex(l.projectNumber)));
+}
+
+/**
+ * Longest comment the original MyTime accepts. Comments written before this limit may be longer:
+ * they are kept, flagged in the grid and block export until someone shortens them.
+ */
+export const MYTIME_COMMENT_MAX = 240;
+
+export const commentTooLong = (comment: string): boolean => comment.length > MYTIME_COMMENT_MAX;
+
+/** Entries whose comment is too long for MyTime, in line and date order. */
+export function longCommentEntries(lines: readonly Line[]): { line: Line; entry: Entry }[] {
+  return lines.flatMap((line) =>
+    line.entries.filter((e) => commentTooLong(e.comment)).map((entry) => ({ line, entry })),
+  );
 }
 
 /** An entry carries information worth keeping (hours or any text). */

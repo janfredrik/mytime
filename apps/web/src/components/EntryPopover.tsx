@@ -1,4 +1,4 @@
-import { type Entry, TEXT_LIMITS, formatHours, parseHours } from '@mytime/shared';
+import { type Entry, MYTIME_COMMENT_MAX, formatHours, parseHours } from '@mytime/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { dayName, longDate } from '../lib/format';
@@ -29,6 +29,10 @@ export function EntryPopover({
   const [timeTo, setTimeTo] = useState(entry.timeTo);
   const hours = parseHours(hoursText);
   const invalid = hoursText.trim() !== '' && (hours === null || hours < 0 || hours > 24);
+  // A comment from before the limit may be shortened but never made longer.
+  const commentMax = Math.max(MYTIME_COMMENT_MAX, entry.comment.length);
+  const commentLength = comment.trim().length;
+  const commentOver = commentLength - MYTIME_COMMENT_MAX;
 
   useLayoutEffect(() => {
     const place = () => {
@@ -173,12 +177,26 @@ export function EntryPopover({
               e.currentTarget.setSelectionRange(end, end);
             }}
             rows={4}
-            className={`${inputClass} resize-y`}
+            className={`${inputClass} resize-y ${commentOver > 0 ? 'border-negative' : ''}`}
             value={comment}
-            maxLength={TEXT_LIMITS.comment}
+            maxLength={commentMax}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Hva ble gjort?"
+            aria-invalid={commentOver > 0 || undefined}
+            aria-describedby="entry-comment-count"
           />
+          <span
+            id="entry-comment-count"
+            aria-live="polite"
+            className={`mt-1 flex justify-between gap-2 text-xs tabular ${
+              commentOver > 0 ? 'text-negative' : commentLength >= MYTIME_COMMENT_MAX - 20 ? 'text-warning' : 'text-ink-subtle'
+            }`}
+          >
+            <span>{commentOver > 0 ? `For lang for MyTime. Kort ned ${commentOver} tegn` : ''}</span>
+            <span>
+              {commentLength} / {MYTIME_COMMENT_MAX}
+            </span>
+          </span>
         </Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Fra">

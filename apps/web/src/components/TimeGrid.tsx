@@ -1,6 +1,8 @@
 import {
   type Entry,
   type Line,
+  MYTIME_COMMENT_MAX,
+  commentTooLong,
   countsTowardsFlex,
   formatHours,
   holidayName,
@@ -182,6 +184,8 @@ const HourCell = memo(function HourCell({
   };
 
   const hasComment = !!entry && (entry.comment !== '' || entry.timeFrom !== '' || entry.timeTo !== '');
+  const tooLong = !!entry && commentTooLong(entry.comment);
+  const tooLongNote = `Kommentaren er for lang for MyTime (${entry?.comment.length ?? 0} av ${MYTIME_COMMENT_MAX} tegn). Kort ned før eksport.`;
   const errorId = `cell-error-${row}-${col}`;
 
   return (
@@ -190,7 +194,7 @@ const HourCell = memo(function HourCell({
         data-cell={`${row}:${col}`}
         inputMode="decimal"
         autoComplete="off"
-        aria-label={hasComment ? `${label}, har kommentar` : label}
+        aria-label={tooLong ? `${label}, kommentaren er for lang` : hasComment ? `${label}, har kommentar` : label}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? errorId : undefined}
         title={entry?.comment || undefined}
@@ -255,15 +259,17 @@ const HourCell = memo(function HourCell({
         type="button"
         tabIndex={-1}
         aria-label={`Kommentar og detaljer, ${label}`}
-        title={hasComment ? entry?.comment || 'Detaljer' : 'Legg til kommentar'}
+        title={tooLong ? tooLongNote : hasComment ? entry?.comment || 'Detaljer' : 'Legg til kommentar'}
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => {
           // The cell keeps focus (see onMouseDown), so hours typed just now are not saved yet.
           if (commit()) onDetails(row, col, e.currentTarget.parentElement!.querySelector('input')!);
         }}
         className={`absolute top-1/2 right-1 -translate-y-1/2 rounded p-0.5 transition-opacity ${
-          hasComment
-            ? 'text-accent opacity-100'
+          tooLong
+            ? 'bg-negative-soft text-negative opacity-100'
+            : hasComment
+              ? 'text-accent opacity-100'
             : 'text-ink-subtle opacity-0 group-hover/cell:opacity-100 group-focus-within/cell:opacity-100'
         }`}
       >

@@ -114,7 +114,8 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect(changed.json().status).toBe('changed');
 
     const flex = await alice.get('/api/flex');
-    expect(flex.json()).toMatchObject({ startDate: WEEK, balance: -16 }); // -2.5 + 2.5 - 8 (ons) - 8 (tor); fredag (i dag) teller ikke
+    expect(flex.json()).toMatchObject({ startDate: WEEK, balance: -16 }); // -2.5 + 2.5 - 8 (ons) - 8 (tor); fredag (i dag) er uten timer
+    expect(flex.json().weeks).toEqual([{ weekStart: WEEK, flex: -16, balance: -16 }]);
   });
 
   it('rejects entries outside the week', async () => {

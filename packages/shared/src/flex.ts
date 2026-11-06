@@ -1,4 +1,4 @@
-import { addDays, compareISODate, isoDayOfWeek } from './dates.js';
+import { addDays, compareISODate, isoDayOfWeek, weekStartOf } from './dates.js';
 import { holidayName } from './holidays.js';
 
 export const DEFAULT_DAILY_NORM = 8;
@@ -25,9 +25,9 @@ export function normForDate(date: string, dailyNorm: number): number {
 
 /**
  * Flex for a single day: registered hours minus the norm.
- * Returns null when the day should not (yet) count: future days without registered hours,
- * non-workdays without hours, and today while it is still short of the norm (the day is
- * not over, so a deficit would be premature).
+ * Returns null when the day should not (yet) count: future days and today without
+ * registered hours, and non-workdays without hours. Once today has hours it counts in full,
+ * deficit included.
  */
 export function dailyFlex(
   date: string,
@@ -37,8 +37,7 @@ export function dailyFlex(
 ): number | null {
   const norm = normForDate(date, dailyNorm);
   const order = compareISODate(date, today);
-  if (order === 0 && hours < norm) return null;
-  if (hours === 0 && (order > 0 || !isWorkday(date))) return null;
+  if (hours === 0 && (order >= 0 || !isWorkday(date))) return null;
   return round2(hours - norm);
 }
 
@@ -68,4 +67,37 @@ export function flexBalance(input: FlexBalanceInput): number {
     balance += dailyFlex(date, hoursByDate.get(date) ?? 0, dailyNorm, today) ?? 0;
   }
   return round2(balance);
+}
+
+export interface FlexWeek {
+  weekStart: string;
+  /** Flex earned that week (only days from the start date count). */
+  flex: number;
+  /** Balance at the end of the week. */
+  balance: number;
+}
+
+/**
+ * Week-by-week flex from the week containing `startDate` up to the current week (or a later
+ * week that already has hours). The last balance equals `flexBalance`.
+ */
+export function flexHistory(input: FlexBalanceInput): FlexWeek[] {
+  const { startDate, startBalance, dailyNorm, today, hoursByDate } = input;
+  let end = today;
+  for (const [date, hours] of hoursByDate) {
+    if (hours !== 0 && compareISODate(date, end) > 0) end = date;
+  }
+  const weeks: FlexWeek[] = [];
+  let balance = startBalance;
+  for (let week = weekStartOf(startDate); compareISODate(week, end) <= 0; week = addDays(week, 7)) {
+    let flex = 0;
+    for (let i = 0; i < 7; i++) {
+      const date = addDays(week, i);
+      if (compareISODate(date, startDate) < 0 || compareISODate(date, end) > 0) continue;
+      flex += dailyFlex(date, hoursByDate.get(date) ?? 0, dailyNorm, today) ?? 0;
+    }
+    balance += flex;
+    weeks.push({ weekStart: week, flex: round2(flex), balance: round2(balance) });
+  }
+  return weeks;
 }

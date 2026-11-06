@@ -23,6 +23,7 @@ import { dateTime, dayName, longDate, shortDate, signedHours } from '../lib/form
 import { newLine } from '../lib/lines';
 import { useCelebrate } from '../lib/useCelebrate';
 import { type SaveErrorKind, type SaveState, useWeekEditor } from '../lib/useWeekEditor';
+import { FlexHistoryDialog, FlexSparkline } from './FlexChart';
 import { ImportDialog } from './ImportDialog';
 import { CATALOG_STALE_MS, LineEditor } from './LineEditor';
 import { MiniCalendar } from './MiniCalendar';
@@ -56,13 +57,37 @@ function saveBlob({ blob, fileName }: { blob: Blob; fileName: string }) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-function StatCard({ label, children, footer }: { label: string; children: ReactNode; footer?: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col rounded-xl border border-line bg-surface px-4 py-3 shadow-sm">
+function StatCard({
+  label,
+  children,
+  footer,
+  onClick,
+  actionLabel,
+}: {
+  label: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  onClick?: () => void;
+  actionLabel?: string;
+}) {
+  const body = (
+    <>
       <div className="text-xs font-medium text-ink-muted">{label}</div>
       <div className="mt-1 flex items-baseline gap-1.5">{children}</div>
       {footer && <div className="mt-auto pt-2 text-xs text-ink-subtle">{footer}</div>}
-    </div>
+    </>
+  );
+  const base = 'flex min-w-0 flex-col rounded-xl border border-line bg-surface px-4 py-3 text-left shadow-sm';
+  if (!onClick) return <div className={base}>{body}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={actionLabel}
+      className={`${base} transition-colors hover:border-line-strong hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent`}
+    >
+      {body}
+    </button>
   );
 }
 
@@ -160,6 +185,7 @@ export function WeekView({
 
   const [editing, setEditing] = useState<{ id: string | null } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showFlexHistory, setShowFlexHistory] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [toastPaused, setToastPaused] = useState(false);
@@ -194,7 +220,7 @@ export function WeekView({
     : isFutureWeek
       ? 'Uka har ikke startet'
       : isCurrentWeek
-        ? `Til nå. I dag teller fra ${formatHours(dailyNorm)} t`
+        ? 'Til nå, inkludert det som er ført i dag'
         : 'Timer minus dagsnorm';
   const weekFull = weekNorm > 0 && weekTotal >= weekNorm;
   const weekFullState = useMemo(() => new Map([[weekStart, weekFull]]), [weekStart, weekFull]);
@@ -393,7 +419,18 @@ export function WeekView({
             </StatCard>
             <StatCard
               label="Fleksbalanse"
-              footer={flex.data?.startDate ? `Fra ${longDate(flex.data.startDate)}` : 'Sett startsaldo i innstillinger'}
+              onClick={flex.data?.startDate ? () => setShowFlexHistory(true) : undefined}
+              actionLabel={flex.data ? `Fleksbalanse ${formatHours(flex.data.balance)} timer. Vis fleksutvikling` : undefined}
+              footer={
+                flex.data?.startDate ? (
+                  <span className="flex items-end justify-between gap-2">
+                    <span>Fra {longDate(flex.data.startDate)}</span>
+                    <FlexSparkline weeks={flex.data.weeks} />
+                  </span>
+                ) : (
+                  'Sett startsaldo i innstillinger'
+                )
+              }
             >
               <span className="text-3xl font-semibold tabular">
                 {flex.data ? formatHours(flex.data.balance) : '–'}
@@ -526,6 +563,11 @@ export function WeekView({
           else if (weeks[0]) onNavigate(weeks[0]);
           setToast({ kind: 'ok', text: `Importerte ${weeks.length === 1 ? 'uke ' + isoWeekOf(weeks[0]!).week : weeks.length + ' uker'}` });
         }}
+      />
+      <FlexHistoryDialog
+        open={showFlexHistory}
+        onClose={() => setShowFlexHistory(false)}
+        weeks={flex.data?.weeks ?? []}
       />
 
       {toast && (

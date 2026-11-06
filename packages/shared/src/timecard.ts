@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isValidISODate } from './dates.js';
-import { countsTowardsFlex } from './flex.js';
+import { type FlexWeek, countsTowardsFlex } from './flex.js';
 
 export const isoDateSchema = z
   .string()
@@ -97,6 +97,8 @@ export interface FlexSummary {
   balance: number;
   startDate: string | null;
   today: string;
+  /** Balance week by week, oldest first (empty without a start date). */
+  weeks: FlexWeek[];
 }
 
 export interface CalendarWeek {

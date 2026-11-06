@@ -6,6 +6,7 @@ import {
   flexHoursByDate,
   easterSunday,
   flexBalance,
+  flexHistory,
   formatHoursExport,
   holidayName,
   parseHours,
@@ -41,8 +42,9 @@ describe('flex', () => {
     expect(dailyFlex('2026-09-25', 0, 8, today)).toBe(-8);
   });
 
-  it('only counts today once the norm is reached', () => {
-    expect(dailyFlex('2026-10-02', 4, 8, today)).toBeNull();
+  it('counts today as soon as it has hours', () => {
+    expect(dailyFlex('2026-10-02', 4, 8, today)).toBe(-4);
+    expect(dailyFlex('2026-10-02', 7.5, 8, today)).toBe(-0.5);
     expect(dailyFlex('2026-10-02', 8, 8, today)).toBe(0);
     expect(dailyFlex('2026-10-02', 9.5, 8, today)).toBe(1.5);
   });
@@ -68,6 +70,33 @@ describe('flex', () => {
     expect(
       flexBalance({ startDate: '2026-09-28', startBalance: 0, dailyNorm: 8, today, hoursByDate }),
     ).toBe(1);
+  });
+});
+
+describe('flexHistory', () => {
+  it('gives the balance at the end of each week, matching flexBalance', () => {
+    const today = '2026-10-07'; // onsdag uke 41
+    const hoursByDate = new Map([
+      ['2026-09-30', 10], // start midt i uke 40
+      ['2026-10-01', 8],
+      ['2026-10-02', 7],
+      ['2026-10-05', 9],
+      ['2026-10-06', 8],
+      ['2026-10-07', 6],
+    ]);
+    const input = { startDate: '2026-09-30', startBalance: 5, dailyNorm: 8, today, hoursByDate };
+    expect(flexHistory(input)).toEqual([
+      { weekStart: '2026-09-28', flex: 1, balance: 6 },
+      { weekStart: '2026-10-05', flex: -1, balance: 5 },
+    ]);
+    expect(flexBalance(input)).toBe(5);
+  });
+
+  it('runs to a later week that already has hours', () => {
+    const hoursByDate = new Map([['2026-10-12', 8]]);
+    const weeks = flexHistory({ startDate: '2026-10-05', startBalance: 0, dailyNorm: 8, today: '2026-10-05', hoursByDate });
+    expect(weeks.map((w) => w.weekStart)).toEqual(['2026-10-05', '2026-10-12']);
+    expect(weeks.at(-1)!.balance).toBe(0);
   });
 });
 

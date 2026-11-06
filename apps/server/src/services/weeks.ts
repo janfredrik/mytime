@@ -8,6 +8,7 @@ import {
   FLEX_EXCLUDED_PROJECTS,
   compareISODate,
   flexBalance,
+  flexHistory,
   isMeaningfulEntry,
   isoWeekOf,
   lineKey,
@@ -270,16 +271,13 @@ export async function flexSummary(db: Db, user: User, today: string): Promise<Fl
   const hoursByDate = new Map(rows.map((r) => [r.date, Number(r.hours)]));
   const firstDate = rows.map((r) => r.date).sort(compareISODate)[0];
   const startDate = user.flexStartDate ?? (firstDate ? weekStartOf(firstDate) : null);
-  if (!startDate) return { balance: user.flexStartBalance, startDate: null, today };
-  return {
-    balance: flexBalance({
-      startDate,
-      startBalance: user.flexStartBalance,
-      dailyNorm: user.dailyNormHours,
-      today,
-      hoursByDate,
-    }),
+  if (!startDate) return { balance: user.flexStartBalance, startDate: null, today, weeks: [] };
+  const input = {
     startDate,
+    startBalance: user.flexStartBalance,
+    dailyNorm: user.dailyNormHours,
     today,
+    hoursByDate,
   };
+  return { balance: flexBalance(input), startDate, today, weeks: flexHistory(input) };
 }

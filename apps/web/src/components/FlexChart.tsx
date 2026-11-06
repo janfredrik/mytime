@@ -24,23 +24,40 @@ function yDomain(values: number[]) {
   return { min, max: max === min ? min + step : max, ticks };
 }
 
-/** Small trend line for the balance card: the last weeks, current week marked. */
+/** Fewer weeks than this is too little for a trend; show the numbers instead. */
+export const MIN_CHART_WEEKS = 4;
+
+/** Change over the whole history: last balance minus the balance carried in. */
+function totalChange(weeks: FlexWeek[]): number {
+  const first = weeks[0];
+  const last = weeks.at(-1);
+  return first && last ? Math.round((last.balance - (first.balance - first.flex)) * 100) / 100 : 0;
+}
+
+/**
+ * Small trend for the balance card: the last weeks, current week marked. With only a few
+ * weeks it shows the change since the start as text instead.
+ */
 export function FlexSparkline({ weeks }: { weeks: FlexWeek[] }) {
+  if (weeks.length === 0) return null;
+  if (weeks.length < MIN_CHART_WEEKS)
+    return <span className="tabular whitespace-nowrap">{signedHours(totalChange(weeks))} t siden start</span>;
   const recent = weeks.slice(-12);
-  if (recent.length < 2) return null;
   const w = 120;
   const h = 28;
   const pad = 3;
   const values = recent.map((x) => x.balance);
-  const lo = Math.min(0, ...values);
-  const hi = Math.max(0, ...values);
-  const span = hi - lo || 1;
+  // Scale to the data, but never tighter than 8 h, so a quiet period stays flat.
+  const mid = (Math.min(...values) + Math.max(...values)) / 2;
+  const half = Math.max((Math.max(...values) - Math.min(...values)) / 2, 4);
+  const lo = mid - half;
+  const hi = mid + half;
   const x = (i: number) => pad + (i / (recent.length - 1)) * (w - pad * 2);
-  const y = (v: number) => pad + (1 - (v - lo) / span) * (h - pad * 2);
+  const y = (v: number) => pad + (1 - (v - lo) / (hi - lo)) * (h - pad * 2);
   const path = recent.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.balance).toFixed(1)}`).join('');
   const last = recent.length - 1;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block overflow-visible" aria-hidden="true">
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block min-w-0 shrink overflow-visible" aria-hidden="true">
       {lo < 0 && hi > 0 && (
         <line x1={pad} x2={w - pad} y1={y(0)} y2={y(0)} className="stroke-line-strong" strokeWidth={1} />
       )}
@@ -186,7 +203,8 @@ export function FlexHistoryDialog({
 }) {
   const first = weeks[0];
   const lastWeek = weeks.at(-1);
-  const change = first && lastWeek ? lastWeek.balance - (first.balance - first.flex) : 0;
+  const change = totalChange(weeks);
+  const enough = weeks.length >= MIN_CHART_WEEKS;
   return (
     <Dialog open={open} onClose={onClose} title="Fleksutvikling" wide>
       {weeks.length === 0 || !first || !lastWeek ? (
@@ -201,8 +219,14 @@ export function FlexHistoryDialog({
               </>
             )}
           </p>
-          <BalanceChart weeks={weeks} />
-          <details className="text-sm">
+          {enough ? (
+            <BalanceChart weeks={weeks} />
+          ) : (
+            <p className="rounded-lg bg-subtle px-3 py-2 text-sm text-ink-muted">
+              Grafen kommer når du har {MIN_CHART_WEEKS} uker med fleks. Til da ser du ukene her.
+            </p>
+          )}
+          <details className="text-sm" open={!enough}>
             <summary className="cursor-pointer text-ink-muted hover:text-ink">Vis som tabell</summary>
             <table className="mt-2 w-full">
               <thead>

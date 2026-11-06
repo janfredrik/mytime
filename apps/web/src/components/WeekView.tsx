@@ -1,6 +1,5 @@
 import {
   type LineDescriptor,
-  WEEK_STATUS_LABEL,
   type WeekStatus,
   addDays,
   dailyFlex,
@@ -28,7 +27,7 @@ import { ImportDialog } from './ImportDialog';
 import { CATALOG_STALE_MS, LineEditor } from './LineEditor';
 import { MiniCalendar } from './MiniCalendar';
 import { TimeGrid, gridDays } from './TimeGrid';
-import { Alert, Check, ChevronLeft, ChevronRight, Close, Copy, Download, Plus, Upload } from './icons';
+import { Alert, CalendarIcon, Check, ChevronLeft, ChevronRight, Close, Copy, Download, Plus, Upload } from './icons';
 import { Button, Spinner } from './ui';
 
 const STATUS_TONE: Record<WeekStatus, string> = {
@@ -55,6 +54,72 @@ function saveBlob({ blob, fileName }: { blob: Blob; fileName: string }) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** The week title; opens the month calendar (with delivery status per week) below it. */
+function WeekPicker({
+  week,
+  weekStart,
+  today,
+  dailyNorm,
+  onNavigate,
+}: {
+  week: number;
+  weekStart: string;
+  today: string;
+  dailyNorm: number;
+  onNavigate: (weekStart: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setOpen(false);
+      ref.current?.querySelector<HTMLElement>('button')?.focus();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <h1>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          title="Velg uke i kalenderen"
+          onClick={() => setOpen((o) => !o)}
+          className={`inline-flex items-center gap-2 rounded-lg px-2 py-0.5 text-2xl font-semibold tracking-tight hover:bg-hover ${open ? 'bg-hover' : ''}`}
+        >
+          Uke {week}
+          <CalendarIcon size={18} className="text-ink-subtle" />
+        </button>
+      </h1>
+      {open && (
+        <div role="dialog" aria-label="Kalender" className="absolute top-full left-0 z-30 mt-2 w-[300px] max-w-[calc(100vw-2rem)] rounded-xl shadow-xl">
+          <MiniCalendar
+            weekStart={weekStart}
+            today={today}
+            dailyNorm={dailyNorm}
+            onSelectWeek={(w) => {
+              setOpen(false);
+              onNavigate(w);
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StatCard({
@@ -216,7 +281,7 @@ export function WeekView({
   const isCurrentWeek = dates.includes(today);
   const isFutureWeek = weekStart > today;
   const flexNote = !flexFrom
-    ? 'Starter når du fører timer'
+    ? 'Sett startsaldo i innstillinger, eller før timer'
     : isFutureWeek
       ? 'Uka har ikke startet'
       : isCurrentWeek
@@ -331,22 +396,19 @@ export function WeekView({
   const longCommentNote = `${longComments === 1 ? 'Én kommentar er' : `${longComments} kommentarer er`} lengre enn ${MYTIME_COMMENT_MAX} tegn. Kort ned de røde før eksport`;
   const exportLabel =
     status === 'exported' ? 'Eksporter på nytt' : status === 'changed' ? `Eksporter uke ${week} på nytt` : `Eksporter uke ${week}`;
+  // Delivery status sits next to the export button; the calendar marks each week too.
   const exportNote =
     hasHours && longComments > 0 ? (
       <span className="text-negative">{longCommentNote}</span>
     ) : status === 'exported' && meta?.lastExportedAt ? (
-      `${dateTime(meta.lastExportedAt)}. Endringer etter dette krever ny eksport`
+      `Eksportert ${dateTime(meta.lastExportedAt)}`
     ) : status === 'changed' && meta?.lastExportedAt ? (
-      `Sist eksportert ${dateTime(meta.lastExportedAt)}. Filen er utdatert`
-    ) : weekTotal > 0 ? (
-      'Eksporter og last opp i timesystemet'
-    ) : (
-      'Ingen timer å eksportere ennå'
-    );
+      `Endret etter eksport ${dateTime(meta.lastExportedAt)}`
+    ) : null;
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <section>
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <div className="flex items-center gap-1">
@@ -360,7 +422,7 @@ export function WeekView({
               >
                 <ChevronLeft size={20} />
               </button>
-              <h1 className="min-w-[6.5rem] text-center text-2xl font-semibold tracking-tight">Uke {week}</h1>
+              <WeekPicker week={week} weekStart={weekStart} today={today} dailyNorm={dailyNorm} onNavigate={onNavigate} />
               <button
                 type="button"
                 aria-label="Neste uke"
@@ -385,7 +447,7 @@ export function WeekView({
             </Button>
           </div>
 
-          <div className="grid flex-1 grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <StatCard
               label="Ført denne uka"
               footer={
@@ -409,47 +471,44 @@ export function WeekView({
                 </span>
               )}
             </StatCard>
-            <StatCard label="Fleks denne uka" footer={flexNote}>
-              <span
-                className={`text-3xl font-semibold tabular ${weekFlex > 0 ? 'text-positive' : weekFlex < 0 ? 'text-negative' : ''}`}
-              >
-                {signedHours(weekFlex)}
-              </span>
-              <span className="text-sm text-ink-muted">t</span>
-            </StatCard>
             <StatCard
-              label="Fleksbalanse"
+              label="Fleks"
               onClick={flex.data?.startDate ? () => setShowFlexHistory(true) : undefined}
-              actionLabel={flex.data ? `Fleksbalanse ${formatHours(flex.data.balance)} timer. Vis fleksutvikling` : undefined}
+              actionLabel={
+                flex.data
+                  ? `Fleks denne uka ${signedHours(weekFlex)} timer, saldo ${formatHours(flex.data.balance)} timer. Vis fleksutvikling`
+                  : undefined
+              }
               footer={
-                flex.data?.startDate ? (
-                  <span className="flex items-end justify-between gap-2">
-                    <span>Fra {longDate(flex.data.startDate)}</span>
-                    <FlexSparkline weeks={flex.data.weeks} />
-                  </span>
-                ) : (
-                  'Sett startsaldo i innstillinger'
-                )
+                <span className="flex items-end justify-between gap-2">
+                  <span>{flexNote}</span>
+                  {flex.data?.startDate && <FlexSparkline weeks={flex.data.weeks} />}
+                </span>
               }
             >
-              <span className="text-3xl font-semibold tabular">
-                {flex.data ? formatHours(flex.data.balance) : '–'}
+              <span className="flex flex-col">
+                <span className="flex items-baseline gap-1">
+                  <span
+                    className={`text-3xl font-semibold tabular ${weekFlex > 0 ? 'text-positive' : weekFlex < 0 ? 'text-negative' : ''}`}
+                  >
+                    {signedHours(weekFlex)}
+                  </span>
+                  <span className="text-sm text-ink-muted">t</span>
+                </span>
+                <span className="text-xs text-ink-muted">denne uka</span>
               </span>
-              <span className="text-sm text-ink-muted">t</span>
-            </StatCard>
-            <StatCard label="Levering" footer={exportNote}>
-              <span className={`flex min-w-0 items-start gap-1.5 text-lg leading-snug font-semibold ${STATUS_TONE[status]}`}>
-                {status === 'exported' ? (
-                  <Check className="mt-1 shrink-0" />
-                ) : status === 'changed' ? (
-                  <Alert className="mt-1 shrink-0" />
-                ) : null}
-                <span>{WEEK_STATUS_LABEL[status]}</span>
+              <span className="ml-auto flex flex-col items-end">
+                <span className="flex items-baseline gap-1">
+                  <span className="text-3xl font-semibold tabular">{flex.data ? formatHours(flex.data.balance) : '–'}</span>
+                  <span className="text-sm text-ink-muted">t</span>
+                </span>
+                <span className="text-xs whitespace-nowrap text-ink-muted">
+                  {flex.data?.startDate ? `saldo fra ${longDate(flex.data.startDate)}` : 'saldo'}
+                </span>
               </span>
             </StatCard>
           </div>
         </div>
-        <MiniCalendar weekStart={weekStart} today={today} dailyNorm={dailyNorm} onSelectWeek={onNavigate} />
       </section>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -463,7 +522,13 @@ export function WeekView({
             </Button>
           </>
         )}
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+          {exportNote && (
+            <span className={`flex w-full items-center justify-end gap-1.5 text-right text-xs sm:w-auto ${STATUS_TONE[status]}`}>
+              {status === 'exported' ? <Check size={13} /> : status === 'changed' ? <Alert size={13} /> : null}
+              {exportNote}
+            </span>
+          )}
           <SaveIndicator
             state={editor.saveState}
             error={editor.saveError}

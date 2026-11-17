@@ -18,10 +18,12 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
+import { saveBlob } from '../lib/delivery';
 import { dateTime, dayName, longDate, shortDate, signedHours } from '../lib/format';
 import { newLine } from '../lib/lines';
 import { useCelebrate } from '../lib/useCelebrate';
 import { type SaveErrorKind, type SaveState, useWeekEditor } from '../lib/useWeekEditor';
+import { ExportWeeksDialog, pendingWeeks } from './ExportWeeksDialog';
 import { FlexHistoryDialog, FlexSparkline } from './FlexChart';
 import { ImportDialog } from './ImportDialog';
 import { CATALOG_STALE_MS, LineEditor } from './LineEditor';
@@ -43,17 +45,6 @@ interface Toast {
   kind: 'ok' | 'error';
   text: string;
   action?: { label: string; run: () => void };
-}
-
-function saveBlob({ blob, fileName }: { blob: Blob; fileName: string }) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 /** The week title; opens the month calendar (with delivery status per week) below it. */
@@ -250,6 +241,9 @@ export function WeekView({
 
   const [editing, setEditing] = useState<{ id: string | null } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [exportingMany, setExportingMany] = useState(false);
+  const exportable = useQuery({ queryKey: ['exportable'], queryFn: api.exportable });
+  const pendingCount = exportable.data ? pendingWeeks(exportable.data, today).length : 0;
   const [showFlexHistory, setShowFlexHistory] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -328,6 +322,7 @@ export function WeekView({
         saveBlob(file);
         return api.week(weekStart);
       });
+      void qc.invalidateQueries({ queryKey: ['exportable'] });
       setToast({
         kind: 'ok',
         text: `Lastet ned ${fileName} (${lineCount} ${lineCount === 1 ? 'linje' : 'linjer'}, ${formatHours(hours)} t). Last den opp i timesystemet.`,
@@ -536,6 +531,22 @@ export function WeekView({
             onRetry={() => void editor.flush()}
           />
           <Button
+            variant="ghost"
+            onClick={() => setExportingMany(true)}
+            disabled={busy !== null}
+            title="Eksporter flere uker, én fil per uke"
+          >
+            Flere uker
+            {pendingCount > 0 && (
+              <span
+                className="tabular rounded-full bg-accent-soft px-1.5 text-xs font-semibold text-accent"
+                aria-label={`${pendingCount} ${pendingCount === 1 ? 'uke venter' : 'uker venter'}`}
+              >
+                {pendingCount}
+              </span>
+            )}
+          </Button>
+          <Button
             variant={status === 'exported' ? 'secondary' : 'primary'}
             onClick={exportWeek}
             disabled={!canExport || busy !== null}
@@ -612,6 +623,15 @@ export function WeekView({
         onSave={saveLine}
         onDelete={editingLine ? () => deleteLine(editingLine.id) : undefined}
         onClose={() => setEditing(null)}
+      />
+
+      <ExportWeeksDialog
+        open={exportingMany}
+        today={today}
+        currentWeek={weekStart}
+        beforeRun={editor.flush}
+        onClose={() => setExportingMany(false)}
+        onNavigate={onNavigate}
       />
 
       <ImportDialog

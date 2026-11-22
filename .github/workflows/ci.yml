@@ -8,7 +8,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Låst til 24.04: Playwright 1.56 støtter ikke ubuntu-latest (26.04) ennå.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16-alpine

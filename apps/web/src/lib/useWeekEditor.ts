@@ -81,6 +81,7 @@ export function useWeekEditor(weekStart: string) {
     (week: Week) => {
       qc.setQueryData(['week', week.weekStart], week);
       void qc.invalidateQueries({ queryKey: ['calendar'] });
+      void qc.invalidateQueries({ queryKey: ['exportable'] });
       void qc.invalidateQueries({ queryKey: ['flex'] });
       void qc.invalidateQueries({ queryKey: ['suggestions'] });
     },

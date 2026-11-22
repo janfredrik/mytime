@@ -3,6 +3,7 @@ import type {
   CatalogProject,
   CatalogTask,
   CatalogUploadResult,
+  ExportableWeek,
   FlexSummary,
   ImportCommit,
   ImportPreview,
@@ -117,6 +118,7 @@ export const api = {
   copyPrevious: (weekStart: string) =>
     request<Week>('POST', `/api/weeks/${weekStart}/copy-previous`),
   exportWeek,
+  exportable: () => request<ExportableWeek[]>('GET', '/api/exportable'),
   calendar: (from: string, to: string) =>
     request<CalendarWeek[]>('GET', `/api/calendar?from=${from}&to=${to}`),
   flex: () => request<FlexSummary>('GET', '/api/flex'),

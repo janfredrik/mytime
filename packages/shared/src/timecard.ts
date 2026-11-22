@@ -108,6 +108,19 @@ export interface CalendarWeek {
   status: WeekStatus | null;
 }
 
+/** A week with hours, as listed for exporting several weeks at once. */
+export interface ExportableWeek {
+  weekStart: string;
+  isoYear: number;
+  isoWeek: number;
+  lines: number;
+  totalHours: number;
+  status: WeekStatus;
+  lastExportedAt: string | null;
+  /** Comments longer than MyTime allows; the week cannot be exported until they are shortened. */
+  longComments: number;
+}
+
 export interface ImportedWeek {
   weekStart: string;
   lines: Line[];

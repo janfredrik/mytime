@@ -124,6 +124,8 @@ export async function registerApi(
         return weeks.calendar(db, user(req).id, from, to);
       });
 
+      api.get('/exportable', async (req) => weeks.exportableWeeks(db, user(req).id));
+
       api.get('/suggestions', async (req) => weeks.suggestions(db, user(req).id));
 
       api.get('/catalog/projects', async () => catalog.listProjects(db));

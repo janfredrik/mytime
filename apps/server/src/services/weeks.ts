@@ -1,11 +1,13 @@
 import {
   type CalendarWeek,
+  type ExportableWeek,
   type FlexSummary,
   type Line,
   type LineDescriptor,
   type Week,
   addDays,
   FLEX_EXCLUDED_PROJECTS,
+  MYTIME_COMMENT_MAX,
   compareISODate,
   flexBalance,
   flexHistory,
@@ -229,6 +231,39 @@ export async function calendar(
     });
   }
   return weeks;
+}
+
+/** Every week with hours registered, oldest first, with what exporting it needs to know. */
+export async function exportableWeeks(db: Db, userId: string): Promise<ExportableWeek[]> {
+  const rows = await db
+    .select({
+      weekStart: timecards.weekStart,
+      status: timecards.status,
+      lastExportedAt: timecards.lastExportedAt,
+      lines: sql<string>`count(distinct ${timecardLines.id})`,
+      total: sql<string>`coalesce(sum(${timeEntries.hours}), 0)`,
+      longComments: sql<string>`count(*) filter (where length(${timeEntries.comment}) > ${MYTIME_COMMENT_MAX})`,
+    })
+    .from(timecards)
+    .innerJoin(timecardLines, eq(timecardLines.timecardId, timecards.id))
+    .innerJoin(timeEntries, eq(timeEntries.lineId, timecardLines.id))
+    .where(eq(timecards.userId, userId))
+    .groupBy(timecards.id)
+    .having(sql`sum(${timeEntries.hours}) > 0`)
+    .orderBy(asc(timecards.weekStart));
+  return rows.map((r) => {
+    const { year, week } = isoWeekOf(r.weekStart);
+    return {
+      weekStart: r.weekStart,
+      isoYear: year,
+      isoWeek: week,
+      lines: Number(r.lines),
+      totalHours: Number(r.total),
+      status: r.status,
+      lastExportedAt: r.lastExportedAt?.toISOString() ?? null,
+      longComments: Number(r.longComments),
+    };
+  });
 }
 
 /** Distinct line descriptors the user has used, most recently used first. */

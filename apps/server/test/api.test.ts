@@ -96,6 +96,26 @@ describe.skipIf(!DATABASE_URL)('API', () => {
     expect((await alice.get(`/api/weeks/${WEEK}/export`)).statusCode).toBe(200);
   });
 
+  it('lists weeks with hours for exporting several at once', async () => {
+    const alice = await login('alice');
+    const bob = await login('bob');
+    const next = '2026-10-05';
+    const long = line({ '2026-10-05': 4 });
+    long.entries[0]!.comment = 'x'.repeat(241);
+    await alice.send('PUT', `/api/weeks/${WEEK}`, { lines: [line({ '2026-09-28': 7.5, '2026-09-29': 8 }), line()] });
+    await alice.send('PUT', `/api/weeks/${next}`, { lines: [long, line({ '2026-10-06': 2 })] });
+    await alice.send('PUT', '/api/weeks/2026-10-12', { lines: [line()] }); // lines without hours
+    await bob.send('PUT', `/api/weeks/${WEEK}`, { lines: [line({ '2026-09-28': 1 })] });
+    await alice.get(`/api/weeks/${WEEK}/export`);
+
+    const res = await alice.get('/api/exportable');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual([
+      expect.objectContaining({ weekStart: WEEK, isoWeek: 40, lines: 1, totalHours: 15.5, status: 'exported', longComments: 0 }),
+      expect.objectContaining({ weekStart: next, isoWeek: 41, lines: 2, totalHours: 6, status: 'draft', longComments: 1, lastExportedAt: null }),
+    ]);
+  });
+
   it('saves, exports and marks a week as changed after later edits', async () => {
     const alice = await login('alice');
     const empty = await alice.get(`/api/weeks/${WEEK}`);
